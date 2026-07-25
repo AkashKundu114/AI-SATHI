@@ -1,0 +1,23 @@
+{
+  "entry": [
+    {
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "id": "wamid.TEXT123",
+                "from": "919876543210",
+                "timestamp": "1735689600",
+                "type": "text",
+                "text": {
+                  "body": "আজ ৩০০ টাকা পাপড় বিক্রি করেছি"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

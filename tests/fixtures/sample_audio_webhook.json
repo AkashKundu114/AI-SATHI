@@ -1,0 +1,24 @@
+{
+  "entry": [
+    {
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "id": "wamid.AUDIO123",
+                "from": "919876543210",
+                "timestamp": "1735689601",
+                "type": "audio",
+                "audio": {
+                  "id": "audio-media-id-123",
+                  "mime_type": "audio/ogg; codecs=opus"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

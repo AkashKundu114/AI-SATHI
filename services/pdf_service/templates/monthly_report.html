@@ -22,6 +22,15 @@
     .disclaimer { margin:16px; padding:12px; background:#fef9e7; border:1px solid #f9ca24; border-radius:6px; font-size:10px; color:#7d6608; line-height:1.6; }
     .footer { text-align:center; padding:12px; font-size:10px; color:#999; }
     .stamp { border:2px dashed #2e86c1; display:inline-block; padding:8px 16px; border-radius:4px; font-size:11px; color:#2e86c1; margin:8px 16px; }
+
+    /* --- bank-loan-grade additions --- */
+    .bank-summary { margin:16px; padding:14px; background:#eef6fb; border:1px solid #b8dcf0; border-radius:8px; }
+    .bank-summary .row { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px dashed #cfe4f0; }
+    .bank-summary .row:last-child { border-bottom:none; }
+    .bank-summary .row .k { color:#555; } .bank-summary .row .v { font-weight:700; color:#1a5276; }
+    .declaration { margin:16px; padding:12px; background:#f4f4f6; border-radius:6px; font-size:10px; color:#444; line-height:1.6; border-left:3px solid #1a5276; }
+    .signoff { display:flex; justify-content:space-between; margin:24px 16px 8px; font-size:11px; }
+    .signoff .box { width:45%; border-top:1px solid #666; padding-top:6px; color:#555; text-align:center; }
   </style>
 </head>
 <body>
@@ -36,6 +45,20 @@
     <div class="summary-card"><div class="label">মোট খরচ</div><div class="value expense">₹{{ "{:,.0f}".format(total_expense) }}</div></div>
     <div class="summary-card"><div class="label">নেট লাভ</div><div class="value profit">₹{{ "{:,.0f}".format(net_profit) }}</div></div>
   </div>
+
+  <!-- Bank-loan-underwriting section: banks weigh consistency and group
+       standing alongside a single month's P&L. Added so this document
+       carries what a branch officer typically checks for, instead of
+       needing a follow-up visit for details already sitting in the DB. -->
+  <div class="section-title">ব্যাংক ঋণ মূল্যায়নের জন্য অতিরিক্ত তথ্য</div>
+  <div class="bank-summary">
+    <div class="row"><span class="k">ধারাবাহিক হিসাবের ইতিহাস</span><span class="v">{{ months_of_history_bengali }} মাস</span></div>
+    {% if shg_grade_level %}
+    <div class="row"><span class="k">স্বনির্ভর গোষ্ঠীর গ্রেড</span><span class="v">গ্রেড {{ shg_grade_level }}</span></div>
+    {% endif %}
+    <div class="row"><span class="k">ব্যাংক লিংকেজ অবস্থা</span><span class="v">{{ bank_linkage_label }}</span></div>
+  </div>
+
   <div class="section-title">আয়ের বিবরণ</div>
   <table><tr><th>পণ্য/সেবা</th><th>পরিমাণ (₹)</th></tr>
     {% for cat, amt in income_by_category.items() %}<tr><td>{{ cat }}</td><td>₹{{ "{:,.0f}".format(amt) }}</td></tr>{% endfor %}
@@ -45,6 +68,16 @@
     {% for cat, amt in expense_by_category.items() %}<tr><td>{{ cat }}</td><td>₹{{ "{:,.0f}".format(amt) }}</td></tr>{% endfor %}
   </table>
   <div style="margin:16px 16px 4px;"><div class="stamp">কোথা-খাতা দ্বারা তৈরি | {{ generated_date }}</div></div>
+
+  <div class="declaration">
+    <strong>ঘোষণা:</strong> {{ declaration_text }}
+  </div>
+
+  <div class="signoff">
+    <div class="box">{{ member_name }}<br>সদস্যের স্বাক্ষর / টিপসই</div>
+    <div class="box">যাচাইকারী কর্মকর্তার স্বাক্ষর ও সিল<br>(শাখা ব্যবহারের জন্য)</div>
+  </div>
+
   <div class="disclaimer">
     <strong>গুরুত্বপূর্ণ:</strong> এই নথিটি {{ member_name }}-এর ব্যক্তিগত লেনদেনের রেকর্ডের ভিত্তিতে তৈরি।
     ব্যাংক ঋণ বা পঞ্চায়েত সভায় সহায়ক নথি হিসেবে ব্যবহার করা যেতে পারে।

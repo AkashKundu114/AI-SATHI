@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: kothkori
       POSTGRES_USER: kothkori
@@ -9,7 +9,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5432:5432"   # loopback only — never exposed to the host network
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "kothkori"]
       interval: 10s
@@ -21,7 +21,7 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:6379:6379"   # loopback only
     command: >
       sh -c "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""
 
@@ -68,6 +68,9 @@ services:
       - gateway
     restart: unless-stopped
 
+  # Optional, free, self-hosted LLM fallback tier. Disabled unless you
+  # set USE_LOCAL_MODELS=true in .env and have a GPU box. No third-party
+  # API involved — this runs entirely inside your own infrastructure.
   ollama:
     image: ollama/ollama:latest
     profiles: ["local-models"]

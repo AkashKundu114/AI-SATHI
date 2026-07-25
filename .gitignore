@@ -3,9 +3,6 @@
 !.env.example
 *.pem
 *.key
-*.crt
-*.p12
-*.pfx
 secrets/
 
 __pycache__/
@@ -14,14 +11,11 @@ __pycache__/
 .venv/
 venv/
 env/
-tmp/
 
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .coverage
-htmlcov/
-coverage.xml
 
 celerybeat-schedule
 celerybeat.pid
@@ -30,28 +24,13 @@ celerybeat.pid
 pgdata/
 redisdata/
 *.sqlite3
-*.db
 caddy_data/
 caddy_config/
 
 .DS_Store
 Thumbs.db
-.codex/
 .vscode/
 .idea/
 *.swp
 *.log
 logs/
-
-AuthorKit27/
-
-*.aux
-*.bbl
-*.blg
-*.fdb_latexmk
-*.fls
-*.lof
-*.lot
-*.out
-*.synctex.gz
-*.toc

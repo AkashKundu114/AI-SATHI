@@ -5,6 +5,7 @@ import re
 
 from services.orchestrator.model_router import route_vision_completion, route_completion, TaskCriticality
 from shared.catalog.local_products import CATEGORY_PRICE_RANGES, find_local_product_by_slug
+from shared.knowledge.dignity_guidelines import DIGNITY_RULES_BENGALI
 
 VISION_PROMPT = (
     "এই ছবিতে কী পণ্য দেখছ? শুধুমাত্র এই JSON ফরম্যাটে ফেরত দাও:\n"
@@ -14,14 +15,18 @@ VISION_PROMPT = (
     ' "category": "<textile|food|handicraft|agriculture|other>"}'
 )
 
+# One call, two captions: a warm WhatsApp-forward message for the customer
+# group, and a short punchy ad-style caption for wider promo use.
 CAPTION_SYSTEM = (
-    "তুমি গ্রামীণ স্বনির্ভর গোষ্ঠীর মহিলাদের জন্য একজন বিজ্ঞাপন লেখক।\n"
+    "তুমি গ্রামীণ স্বনির্ভর গোষ্ঠীর মহিলাদের জন্য একজন বিজ্ঞাপন লেখক।\n\n"
+    f"{DIGNITY_RULES_BENGALI}\n\n"
     "দেওয়া পণ্যের তথ্যের ভিত্তিতে, শুধুমাত্র এই JSON ফরম্যাটে ফেরত দাও, অন্য কিছু লিখো না:\n\n"
     '{"whatsapp_caption": "<৪ লাইনের মধ্যে: পণ্যের নাম, ১-২টি বৈশিষ্ট্য, '
     'দামের পরিসীমা (₹X-₹Y), সংক্ষিপ্ত CTA — কাস্টমার গ্রুপে পাঠানোর উপযোগী, উষ্ণ সুরে>",\n'
     ' "ad_caption": "<২ লাইনের মধ্যে: হুক + জরুরিতা/আকর্ষণ + CTA — বিজ্ঞাপনের জন্য '
     'সংক্ষিপ্ত ও আকর্ষণীয়, বেশি ইমোজি নয়>"}\n\n'
-    "নিয়ম: অতিরিক্ত প্রতিশ্রুতি বা মিথ্যা দাবি করো না — শুধু যা ছবিতে দেখা যাচ্ছে তার ভিত্তিতে লেখো।"
+    "নিয়ম: অতিরিক্ত প্রতিশ্রুতি বা মিথ্যা দাবি করো না — শুধু যা ছবিতে দেখা যাচ্ছে তার ভিত্তিতে লেখো। "
+    "পণ্যের মান নিয়ে কখনো নেতিবাচক বা করুণাসূচক মন্তব্য কোরো না (যেমন 'সাধারণ মানের হলেও')।"
 )
 
 _FALLBACK_WHATSAPP_CAPTION = "✨ নতুন পণ্য এসেছে! বিস্তারিত জানতে যোগাযোগ করুন।"
@@ -43,6 +48,11 @@ async def analyze_product_image(image_bytes: bytes) -> dict:
 
 
 def _price_range_for(product_info: dict) -> tuple[float, float]:
+    """Tries a specific local-product match first (shared/catalog/local_products.py
+    — e.g. 'kantha saree' -> ₹500-₹2000, tighter than the broad textile
+    bucket), falling back to the 5-bucket category default if nothing in
+    the local catalog matches. Never fabricates a range outside either
+    source — always one or the other."""
     product_type = product_info.get("product_type", "")
     local_match = find_local_product_by_slug(product_type)
     if local_match:

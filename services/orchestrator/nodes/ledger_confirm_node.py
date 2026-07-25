@@ -11,7 +11,7 @@ AFFIRMATIVE = {"হ্যাঁ", "হ্যা", "ha", "haan", "thik", "ঠি�
 NEGATIVE = {"না", "no", "na", "bhul", "ভুল", "ঠিক নয়"}
 
 MAX_CONFIRMATION_TURNS = 3
-MAX_REASONABLE_AMOUNT = 500_000
+MAX_REASONABLE_AMOUNT = 500_000 
 
 CORRECTION_SYSTEM = (
     "তুমি বাংলা আর্থিক তথ্য নিষ্কাশনকারী। ব্যবহারকারী একটি পূর্বের\n"

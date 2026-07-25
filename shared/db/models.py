@@ -29,6 +29,12 @@ class SHGGroup(Base):
     block: Mapped[str | None] = mapped_column(String(100))
     grade_level: Mapped[int | None] = mapped_column(Integer)
     total_members: Mapped[int | None] = mapped_column(Integer)
+    # Added by migrations/0005_shg_bank_linkage.sql — expected values NONE /
+    # PHASE1 / PHASE2 / PHASE3, matching the original TRD convention. Used
+    # only for display on the bank-submittable PDF (generator.py); never
+    # used to gate any feature, so a NULL value here degrades to "not shown"
+    # rather than blocking anything.
+    bank_linkage_status: Mapped[str | None] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )

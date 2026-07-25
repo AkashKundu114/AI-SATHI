@@ -1,0 +1,26 @@
+{
+  "entry": [
+    {
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "id": "wamid.INTERACTIVE123",
+                "from": "919876543210",
+                "timestamp": "1735689603",
+                "type": "interactive",
+                "interactive": {
+                  "type": "nfm_reply",
+                  "nfm_reply": {
+                    "response_json": "{\"confirmation_choice\":\"confirm\"}"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

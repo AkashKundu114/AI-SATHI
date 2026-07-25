@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -9,13 +11,24 @@ from services.orchestrator.nodes.onboarding_node import onboarding_node
 from services.orchestrator.nodes.intent_router import classify_intent
 from services.orchestrator.nodes.ledger_node import ledger_extract_node
 from services.orchestrator.nodes.ledger_confirm_node import ledger_confirm_node
+from services.orchestrator.nodes.ledger_confirm_flow_node import ledger_confirm_flow_node
 from services.orchestrator.nodes.ledger_report_node import ledger_report_node
 from services.orchestrator.nodes.catalog_node import catalog_node
 from services.orchestrator.nodes.market_predictor_node import market_predictor_node
 from services.orchestrator.nodes.pricing_node import pricing_node
 from services.orchestrator.nodes.negotiation_node import negotiation_node
+from services.orchestrator.nodes.price_chat_node import price_chat_node
 from services.orchestrator.nodes.conversation_node import general_conversation_node
 from shared.config.settings import get_settings
+
+
+def _interactive_payload(state: ConversationState) -> dict:
+    if state.get("last_message_type") != "interactive":
+        return {}
+    try:
+        return json.loads(state.get("raw_input_text") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
 
 
 def _route_after_profile_load(state: ConversationState) -> str:
@@ -23,12 +36,27 @@ def _route_after_profile_load(state: ConversationState) -> str:
         state.get("onboarding_step") and state["onboarding_step"] != "DONE"
     ):
         return "onboarding"
+
     if state.get("awaiting_confirmation"):
+        # Two possible confirmation paths converge here: a tapped Flow
+        # choice (ledger_confirm_flow.json -> "confirmation_choice" key)
+        # or free-typed হ্যাঁ/না text. Route by payload shape, not just
+        # message type, since a correction reply to the Flow path still
+        # arrives as plain text on the next turn.
+        payload = _interactive_payload(state)
+        if "confirmation_choice" in payload:
+            return "ledger_confirm_flow"
         return "ledger_confirm"
+
     if state.get("awaiting_negotiation"):
         return "negotiation"
+
+    if state.get("awaiting_price_chat"):
+        return "price_chat"
+
     if state.get("last_message_type") == "image":
         return "catalog"
+
     return "classify_intent"
 
 
@@ -44,7 +72,21 @@ def _route_after_intent(state: ConversationState) -> str:
         return "pricing"
     if feature == "NEGOTIATION":
         return "negotiation"
+    if feature == "PRICE_CHAT":
+        return "price_chat"
     return "unhandled"
+
+
+def _route_after_price_chat(state: ConversationState) -> str:
+    """Once the seller and the bot agree a price (agreed_price is set and
+    the chat isn't still waiting on a reply), hand off to catalog_node in
+    the SAME turn so a poster can be composed using the just-agreed price
+    instead of making the seller send another message. If the chat is
+    still open (awaiting_price_chat True), just end the turn and wait for
+    the seller's next reply, same as negotiation/ledger_confirm do."""
+    if state.get("agreed_price") is not None and not state.get("awaiting_price_chat"):
+        return "catalog"
+    return "end"
 
 
 def build_graph() -> StateGraph:
@@ -55,11 +97,13 @@ def build_graph() -> StateGraph:
     graph.add_node("classify_intent", classify_intent)
     graph.add_node("ledger", ledger_extract_node)
     graph.add_node("ledger_confirm", ledger_confirm_node)
+    graph.add_node("ledger_confirm_flow", ledger_confirm_flow_node)
     graph.add_node("ledger_report", ledger_report_node)
     graph.add_node("catalog", catalog_node)
     graph.add_node("market", market_predictor_node)
     graph.add_node("pricing", pricing_node)
     graph.add_node("negotiation", negotiation_node)
+    graph.add_node("price_chat", price_chat_node)
     graph.add_node("unhandled", general_conversation_node)
 
     graph.set_entry_point("load_user_profile")
@@ -69,7 +113,9 @@ def build_graph() -> StateGraph:
         {
             "onboarding": "onboarding",
             "ledger_confirm": "ledger_confirm",
+            "ledger_confirm_flow": "ledger_confirm_flow",
             "negotiation": "negotiation",
+            "price_chat": "price_chat",
             "catalog": "catalog",
             "classify_intent": "classify_intent",
         },
@@ -83,12 +129,20 @@ def build_graph() -> StateGraph:
             "market": "market",
             "pricing": "pricing",
             "negotiation": "negotiation",
+            "price_chat": "price_chat",
             "unhandled": "unhandled",
         },
     )
+    graph.add_conditional_edges(
+        "price_chat",
+        _route_after_price_chat,
+        {"catalog": "catalog", "end": END},
+    )
+
     graph.add_edge("onboarding", END)
     graph.add_edge("ledger", END)
     graph.add_edge("ledger_confirm", END)
+    graph.add_edge("ledger_confirm_flow", END)
     graph.add_edge("ledger_report", END)
     graph.add_edge("catalog", END)
     graph.add_edge("market", END)
@@ -103,6 +157,8 @@ _compiled_graph = None
 
 
 async def get_compiled_graph():
+    """Compiled once, reused — recompiling per-turn would reopen a Postgres
+    checkpointer connection on every message."""
     global _compiled_graph
     if _compiled_graph is not None:
         return _compiled_graph

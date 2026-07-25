@@ -1,5 +1,5 @@
 {
-  "_comment": "Sample WhatsApp Cloud API webhook payload for local testing. POST this to http://localhost:8000/webhook/whatsapp (with a valid X-Hub-Signature-256 header computed against WA_WEBHOOK_VERIFY_TOKEN, or temporarily relax the signature check in main.py while developing locally).",
+  "_comment": "Sample WhatsApp Cloud API webhook payload for local testing. POST this to http://localhost:8000/webhook/whatsapp with X-Hub-Signature-256 computed with WA_APP_SECRET.",
   "entry": [
     {
       "changes": [

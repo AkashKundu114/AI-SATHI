@@ -16,8 +16,8 @@ PHRASING_SYSTEM = (
     f"{DIGNITY_RULES_BENGALI}\n\n"
     "দেওয়া তথ্যের ভিত্তিতে, সহজ কথ্য বাংলায়\n"
     "৩-৪ লাইনের একটি সংক্ষিপ্ত সাপ্তাহিক পরামর্শ লেখো। শুধুমাত্র দেওয়া তথ্য\n"
-    "ব্যবহার করো, নতুন কোনো পণ্য বা সংখ্যা তৈরি করো না। উৎসব বা মৌসুমি তথ্য থাকলে "
-    "শুধু প্রাসঙ্গিক হলে উল্লেখ করো।"
+    "ব্যবহার করো, নতুন কোনো পণ্য বা সংখ্যা তৈরি করো না। উৎসব/মৌসুমি তথ্য থাকলে "
+    "সেটা প্রাসঙ্গিক হলে উল্লেখ করো, না থাকলে বাদ দাও।"
 )
 
 
@@ -38,18 +38,28 @@ async def market_predictor_node(state: ConversationState) -> dict:
             "trace": ["market_predictor_node:build_report_failed"],
         }
 
-    district = profile.get("district") or block
+    # Shared knowledge base (shared/knowledge/context.py) — festivals and
+    # seasonal weather notes are the same context pricing_node/price_chat_node
+    # draw on, so a rising trend near Durga Puja and the "friend" pricing
+    # chat's festival framing stay consistent with each other rather than
+    # each node inventing its own seasonal story.
+    district = (profile.get("district") or block)  # district match is preferred; block is the fallback
     knowledge = get_context_for_agents(month=date.today().month, block=block, district=district)
     report["knowledge"] = knowledge
 
+    # Crop-specific seasonality (shared/knowledge/crop_calendar.py) -- a
+    # different signal from the generic SEASONAL_PATTERNS weather notes
+    # already inside `knowledge`: this is which NAMED crops are at harvest
+    # (local supply glut, typically the cheapest buying window) this month,
+    # narrowed to the user's district when we have one.
     this_month_harvest = crops_at_harvest(date.today().month)
     if district:
-        district_crops = {crop.slug for crop in crops_for_district(district)}
+        district_crops = {c.slug for c in crops_for_district(district)}
         if district_crops:
-            this_month_harvest = [crop for crop in this_month_harvest if crop.slug in district_crops]
+            this_month_harvest = [c for c in this_month_harvest if c.slug in district_crops]
     report["crops_at_harvest"] = [
-        {"slug": crop.slug, "name_bengali": crop.name_bengali, "note": crop.note_bengali}
-        for crop in this_month_harvest
+        {"slug": c.slug, "name_bengali": c.name_bengali, "note": c.note_bengali}
+        for c in this_month_harvest
     ]
 
     if (
@@ -84,12 +94,12 @@ def _plain_fallback(report: dict) -> str:
         lines.append("📈 বেড়ে চলা পণ্য: " + ", ".join(report["rising"]))
     if report["saturated"]:
         lines.append("📉 বেশি সরবরাহ থাকা পণ্য: " + ", ".join(report["saturated"]))
-    for festival in report.get("knowledge", {}).get("upcoming_festivals", []):
-        lines.append(f"🎉 {festival['name_bengali']}: {festival['note']}")
-    for mela in report.get("knowledge", {}).get("upcoming_district_melas", []):
-        lines.append(f"🎪 {mela['name_bengali']} ({mela['district']}): {mela['note']}")
-    for crop in report.get("crops_at_harvest", []):
-        lines.append(f"🌾 {crop['name_bengali']}: {crop['note']}")
+    for f in report.get("knowledge", {}).get("upcoming_festivals", []):
+        lines.append(f"🎉 {f['name_bengali']}: {f['note']}")
+    for m in report.get("knowledge", {}).get("upcoming_district_melas", []):
+        lines.append(f"🎪 {m['name_bengali']} ({m['district']}): {m['note']}")
+    for c in report.get("crops_at_harvest", []):
+        lines.append(f"🌾 {c['name_bengali']}: {c['note']}")
     return "\n".join(lines) or "এই মুহূর্তে বিশেষ কোনো পরামর্শ নেই।"
 
 
@@ -123,14 +133,15 @@ async def _phrase_report(report: dict) -> str:
     festivals = knowledge.get("upcoming_festivals", [])
     melas = knowledge.get("upcoming_district_melas", [])
     crops = report.get("crops_at_harvest", [])
+
     prompt = (
         f"বেড়ে চলা পণ্য: {', '.join(report['rising']) or 'নেই'}\n"
         f"বেশি সরবরাহ থাকা পণ্য: {', '.join(report['saturated']) or 'নেই'}\n"
         f"মান্ডি দাম তথ্য: {report['mandi_prices'][:5]}\n"
         f"এই মাসের আবহাওয়া/মৌসুমি প্রবণতা: {season['weather_note'] if season else 'তথ্য নেই'}\n"
-        f"আসন্ন উৎসব: {'; '.join(festival['name_bengali'] + ' - ' + festival['note'] for festival in festivals) or 'নেই'}\n"
-        f"আসন্ন স্থানীয় মেলা: {'; '.join(mela['name_bengali'] + ' (' + mela['district'] + ')' for mela in melas) or 'নেই'}\n"
-        f"এই মাসে যেসব ফসল উঠছে: {'; '.join(crop['name_bengali'] + ' - ' + crop['note'] for crop in crops) or 'নেই'}\n\n"
+        f"আসন্ন উৎসব: {'; '.join(f['name_bengali'] + ' - ' + f['note'] for f in festivals) or 'নেই'}\n"
+        f"আসন্ন স্থানীয় মেলা: {'; '.join(m['name_bengali'] + ' (' + m['district'] + ')' for m in melas) or 'নেই'}\n"
+        f"এই মাসে যেসব ফসল উঠছে (কাঁচামাল কেনার ভালো সময়): {'; '.join(c['name_bengali'] + ' - ' + c['note'] for c in crops) or 'নেই'}\n\n"
         "উপরের তথ্যের ভিত্তিতে সাপ্তাহিক বাজার পরামর্শ লেখো।"
     )
     result = await route_completion(

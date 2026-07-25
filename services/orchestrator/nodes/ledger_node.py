@@ -11,6 +11,8 @@ from services.orchestrator.model_router import (
     TaskCriticality,
     ModelUnavailableError,
 )
+from shared.config.settings import get_settings
+from shared.i18n.bengali_numbers import to_bengali_digits
 
 logger = logging.getLogger("ledger_node")
 
@@ -23,7 +25,7 @@ def _looks_code_mixed(text: str) -> bool:
     latin = len(_LATIN_LETTER_RE.findall(text))
     bengali = len(_BENGALI_LETTER_RE.findall(text))
     total_letters = latin + bengali
-    if total_letters < 6:
+    if total_letters < 6:  
         return False
     return (latin / total_letters) >= _BANGLISH_LATIN_RATIO_THRESHOLD
 
@@ -112,27 +114,81 @@ async def ledger_extract_node(state: ConversationState) -> dict:
             "trace": [f"ledger_extract_node:clarify:{result['model_used']}"],
         }
 
-    confirmation = _build_confirmation(pending)
+    outbound = _build_confirmation_message(pending, transcript)
     return {
         "pending_ledger_entry": pending,
         "awaiting_confirmation": True,
         "ledger_confirmation_turns": 0,
-        "outbound_messages": [{"type": "text", "body": confirmation}],
-        "trace": [f"ledger_extract_node:confirm:{result['model_used']}:floor={confidence_floor:.2f}"],
+        "outbound_messages": [outbound],
+        "trace": [f"ledger_extract_node:confirm:{result['model_used']}:floor={confidence_floor:.2f}:via={outbound['type']}"],
     }
 
 
-def _build_confirmation(pending: dict) -> str:
-    lines = ["আমি এইটুকু বুঝলাম:"]
+def _build_confirmation_message(pending: dict, transcript: str) -> dict:
+    """Two delivery paths, same underlying numbers:
+      - If WA_LEDGER_CONFIRM_FLOW_ID is configured, send the tap-to-confirm
+        Flow (ledger_confirm_flow.json) — no free text to mistype/mishear
+        on the way to a permanent DB write.
+      - Otherwise, unchanged plain-text হ্যাঁ/না confirmation, exactly as
+        before this pass — nothing breaks for a deployment that hasn't set
+        up the Flow yet.
+    Both paths are consumed downstream by the SAME `_save()` in
+    ledger_confirm_node.py — see graph.py's routing in _route_after_profile_load.
+    """
+    s = get_settings()
+    body_text = _build_confirmation_text(pending)
+
+    if not s.wa_ledger_confirm_flow_id:
+        return {"type": "text", "body": body_text}
+
+    income_lines, expense_lines, net_profit_line = _confirmation_lines(pending)
+    return {
+        "type": "flow",
+        "flow_id": s.wa_ledger_confirm_flow_id,
+        "header_text": "হিসাব যাচাই করুন",
+        "body_text": "আপনার হিসাবটা একবার দেখে নিন, তারপর বেছে নিন।",
+        "cta_text": "যাচাই করুন",
+        "screen_id": "REVIEW_ENTRY",
+        "screen_data": {
+            "income_lines": income_lines or "কোনো আয় নেই এই এন্ট্রিতে",
+            "expense_lines": expense_lines or "কোনো খরচ নেই এই এন্ট্রিতে",
+            "net_profit_line": net_profit_line,
+            "raw_transcript_preview": transcript[:300],
+        },
+    }
+
+
+def _confirmation_lines(pending: dict) -> tuple[str, str, str]:
+    income_lines, expense_lines = [], []
     total_income, total_expense = 0, 0
     for tx in pending["transactions"]:
         amt = tx.get("amount_inr", 0)
+        amt_bn = to_bengali_digits(amt)
         if tx.get("type") == "INCOME":
             total_income += amt
-            lines.append(f"✅ আয়: {tx.get('item_bengali', '')} → ₹{amt}")
+            income_lines.append(f"✅ আয়: {tx.get('item_bengali', '')} → ₹{amt_bn}")
         else:
             total_expense += amt
-            lines.append(f"📤 খরচ: {tx.get('item_bengali', '')} → ₹{amt}")
-    lines.append(f"\n💰 লাভ: ₹{total_income - total_expense}")
+            expense_lines.append(f"📤 খরচ: {tx.get('item_bengali', '')} → ₹{amt_bn}")
+    net_line = f"লাভ: ₹{to_bengali_digits(total_income - total_expense)}"
+    return "\n".join(income_lines), "\n".join(expense_lines), net_line
+
+
+def _build_confirmation_text(pending: dict) -> str:
+    income_lines, expense_lines, net_line = _confirmation_lines(pending)
+    lines = ["আমি এইটুকু বুঝলাম:"]
+    if income_lines:
+        lines.append(income_lines)
+    if expense_lines:
+        lines.append(expense_lines)
+    lines.append(f"\n💰 {net_line}")
     lines.append("\nঠিক আছে? (হ্যাঁ/না)")
     return "\n".join(lines)
+
+
+def _build_confirmation(pending: dict) -> str:
+    """Kept for backward compatibility — ledger_confirm_node.py's correction
+    loop still calls this directly by name after re-extracting a correction,
+    where the tap-to-confirm Flow doesn't apply (a correction reply is
+    already free text, so the response stays text too)."""
+    return _build_confirmation_text(pending)

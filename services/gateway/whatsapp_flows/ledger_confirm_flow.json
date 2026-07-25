@@ -1,0 +1,69 @@
+{
+  "version": "6.0",
+  "screens": [
+    {
+      "id": "REVIEW_ENTRY",
+      "title": "হিসাব যাচাই করুন",
+      "data": {
+        "income_lines": {"type": "string", "__example__": "আয়: পাপড় ১৫ প্যাকেট → ₹৩০০"},
+        "expense_lines": {"type": "string", "__example__": "খরচ: ডাল ও মশলা → ₹১০০"},
+        "net_profit_line": {"type": "string", "__example__": "লাভ: ₹২০০"},
+        "raw_transcript_preview": {"type": "string", "__example__": "আজ ১৫ প্যাকেট পাপড় ৩০০ টাকায় বিক্রি করেছি"}
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextSubheading",
+            "text": "আপনি যা বলেছিলেন:"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.raw_transcript_preview}"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "আমি এটুকু বুঝেছি:"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.income_lines}"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.expense_lines}"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.net_profit_line}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "ভুল থাকলে 'সংশোধন করব' বেছে নিন — কোনো ভুল টাকার হিসাব সরাসরি সংরক্ষিত হবে না।"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "confirmation_choice",
+            "label": "এই হিসাব কি ঠিক আছে?",
+            "required": true,
+            "data-source": [
+              {"id": "confirm_save", "title": "✅ ঠিক আছে, সংরক্ষণ করুন"},
+              {"id": "needs_correction", "title": "✏️ সংশোধন করব"},
+              {"id": "discard", "title": "❌ বাতিল করুন"}
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "জমা দিন",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "confirmation_choice": "${form.confirmation_choice}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

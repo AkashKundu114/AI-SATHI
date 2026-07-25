@@ -18,13 +18,13 @@ logger = logging.getLogger("catalog_node")
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
-
-
-
-
-
-
-
+# Bridge between the vision model's coarse category (textile/food/
+# handicraft/agriculture/other) and the freeform Bengali category strings
+# ledger entries use, for the market-trend note in _market_note() below.
+# Generated from shared/catalog/local_products.py — the single source of
+# truth for this codebase's product taxonomy — instead of a separately
+# hand-maintained dict that used to cover only 4 categories with 2-4
+# keywords each.
 _CATEGORY_KEYWORDS = category_keywords()
 
 
@@ -61,9 +61,9 @@ async def catalog_node(state: ConversationState) -> dict:
         }
 
     try:
-
-
-
+        # Vision understanding: Sarvam Vision -> local Ollama vision fallback
+        # (see model_router.route_vision_completion). Caption generation is
+        # routed through the Sarvam text cascade inside generate_captions.
         product_info = await analyze_product_image(raw_bytes)
         captions, (price_min, price_max) = await generate_captions(product_info, shg_name=_shg_name(state))
     except ModelUnavailableError:
@@ -71,6 +71,18 @@ async def catalog_node(state: ConversationState) -> dict:
             "outbound_messages": [{"type": "text", "body": "এই মুহূর্তে ছবি প্রসেস করতে সমস্যা হচ্ছে। একটু পরে আবার পাঠান।"}],
             "trace": ["catalog_node:model_unavailable"],
         }
+
+    # If the seller already went through price_chat_node ("একসাথে দাম ঠিক
+    # করি") for this turn, that agreed price overrides the vision-derived
+    # category range — the whole point of that chat was to land on a
+    # number the seller actually endorsed. Cleared immediately after use so
+    # a stale agreed_price from a previous, unrelated product never
+    # silently attaches to a new image later in the conversation.
+    agreed_price = state.get("agreed_price")
+    state_clears: dict = {}
+    if agreed_price is not None:
+        price_min, price_max = agreed_price, agreed_price
+        state_clears = {"agreed_price": None, "pending_price_chat": None}
 
     market_note = await _market_note(state, product_info.get("category", "other"))
 
@@ -94,6 +106,7 @@ async def catalog_node(state: ConversationState) -> dict:
     await _record_creation(state, raw_key, poster_key or processed_key, product_info, captions, price_min, price_max)
 
     return {
+        **state_clears,
         "catalog_result": {
             "product_type": product_info.get("product_type"),
             "caption_bengali": captions["whatsapp_caption"],
@@ -103,7 +116,7 @@ async def catalog_node(state: ConversationState) -> dict:
             "processed_s3_key": poster_key or processed_key,
         },
         "outbound_messages": outbound_messages,
-        "trace": [f"catalog_node:done:{product_info.get('vision_model_used')}:poster={poster_tier}"],
+        "trace": [f"catalog_node:done:{product_info.get('vision_model_used')}:poster={poster_tier}:agreed_price={agreed_price is not None}"],
     }
 
 
@@ -146,9 +159,14 @@ async def _build_delivery_messages(s3, s, processed_bytes, processed_key, produc
         except Exception:
             logger.warning("poster upload failed (tier=%s), falling back to plain image delivery", poster_tier)
 
-    processed_url = s3.generate_presigned_url(
-        "get_object", Params={"Bucket": s.s3_bucket, "Key": processed_key}, ExpiresIn=86400
-    )
+    try:
+        processed_url = s3.generate_presigned_url(
+            "get_object", Params={"Bucket": s.s3_bucket, "Key": processed_key}, ExpiresIn=86400
+        )
+    except Exception:
+        logger.warning("presigned URL generation failed for plain-image fallback delivery")
+        return [{"type": "text", "body": "ছবিটা প্রস্তুত করা গেছে, কিন্তু পাঠাতে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।"}], None, "none"
+
     messages = [
         {"type": "image", "url": processed_url, "caption": captions["whatsapp_caption"]},
         {"type": "text", "body": "📣 বিজ্ঞাপনের জন্য এই সংক্ষিপ্ত বার্তাটিও ব্যবহার করতে পারেন:\n\n" + ad_caption_full},
@@ -170,7 +188,7 @@ async def _market_note(state: ConversationState, vision_category: str) -> str | 
     try:
         rows = await block_sales_trend(block)
     except Exception:
-        return None
+        return None  # optional enrichment — never block catalog delivery on this
 
     by_category: dict[str, list[dict]] = {}
     for row in rows:
@@ -226,4 +244,4 @@ async def _record_creation(state, raw_key, processed_key, product_info, captions
             )
             await db.commit()
     except Exception:
-        pass
+        pass  # the WhatsApp reply already went out; a failed audit-row write shouldn't retry the whole turn

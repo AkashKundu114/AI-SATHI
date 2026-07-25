@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from services.orchestrator.state import ConversationState
 from services.orchestrator.model_router import route_completion, TaskCriticality, ModelUnavailableError
+from shared.knowledge.dignity_guidelines import DIGNITY_RULES_BENGALI
 
 CANNED_FALLBACK = (
     "আমি হিসাব রাখতে, পণ্যের বিজ্ঞাপন বানাতে, আর বাজারের পরামর্শ দিতে পারি। কি দরকার আপনার?"
@@ -10,6 +11,7 @@ CANNED_FALLBACK = (
 CONVERSATION_SYSTEM = (
     "তুমি কোথা-খাতা বট, পশ্চিমবঙ্গের স্বনির্ভর গোষ্ঠীর মহিলাদের একজন উষ্ণ, বন্ধুত্বপূর্ণ সহায়ক।\n"
     "ব্যবহারকারী এমন কিছু জিজ্ঞেস করেছেন যা তোমার মূল কাজের বাইরে (হিসাব, পণ্যের বিজ্ঞাপন, বাজারের পরামর্শ)।\n\n"
+    f"{DIGNITY_RULES_BENGALI}\n\n"
     "নিয়ম:\n"
     "1. ছোট, উষ্ণ, সম্মানজনক উত্তর দাও — ২-৩ বাক্যের বেশি নয়।\n"
     "2. চিকিৎসা, আইনি, বা আর্থিক পরামর্শ কখনো দিও না — এমন প্রশ্নে বলো এটি তোমার বিশেষজ্ঞতার বাইরে।\n"

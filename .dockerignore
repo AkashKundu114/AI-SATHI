@@ -7,6 +7,8 @@
 *.key
 secrets/
 docs/
+README.md
+LICENSE
 tests/
 pytest.ini
 .ruff_cache/
@@ -27,4 +29,3 @@ caddy_config/
 .DS_Store
 *.log
 logs/
-AuthorKit27/
