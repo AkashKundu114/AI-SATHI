@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   gateway:
-    image: ghcr.io/OWNER/ai-sathi:latest
+    image: ghcr.io/AkashKundu114/ai-sathi:latest
     env_file: .env
     ports:
       - "8000:8000"
