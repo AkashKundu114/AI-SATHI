@@ -12,25 +12,6 @@ from shared.config.settings import get_settings
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
-class _FakeRedis:
-    def __init__(self):
-        self.keys = set()
-        self.counts = {}
-
-    async def set(self, key, value, ex=None, nx=False):
-        if nx and key in self.keys:
-            return False
-        self.keys.add(key)
-        return True
-
-    async def incr(self, key):
-        self.counts[key] = self.counts.get(key, 0) + 1
-        return self.counts[key]
-
-    async def expire(self, key, seconds):
-        return True
-
-
 def _body(name: str) -> bytes:
     return (FIXTURES / name).read_bytes()
 
@@ -41,16 +22,23 @@ def _signature(body: bytes) -> str:
 
 
 def test_valid_text_webhook_is_deduped_and_dispatched_once(monkeypatch):
-    fake_redis = _FakeRedis()
+    seen_message_ids: set[str] = set()
     dispatched = []
 
-    async def _fake_get_redis():
-        return fake_redis
+    async def _fake_mark_seen_or_skip(message_id: str) -> bool:
+        if message_id in seen_message_ids:
+            return False
+        seen_message_ids.add(message_id)
+        return True
+
+    async def _fake_rate_limit(phone_number: str, max_per_hour: int) -> bool:
+        return True
 
     async def _fake_dispatch(msg):
         dispatched.append(msg)
 
-    monkeypatch.setattr(gateway, "get_redis", _fake_get_redis)
+    monkeypatch.setattr(gateway, "mark_seen_or_skip", _fake_mark_seen_or_skip)
+    monkeypatch.setattr(gateway, "check_and_increment_rate_limit", _fake_rate_limit)
     monkeypatch.setattr(gateway, "_dispatch_to_orchestrator", _fake_dispatch)
 
     body = _body("sample_text_webhook.json")

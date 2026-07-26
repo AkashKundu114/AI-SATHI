@@ -1,0 +1,10 @@
+[Unit]
+Description=AI-SATHI Postgres backup to Blob Storage
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/ai-sathi/.env
+ExecStart=/opt/ai-sathi/scripts/backup_postgres.sh
+SuccessExitStatus=0
