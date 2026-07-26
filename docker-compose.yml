@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: aisathi
       POSTGRES_USER: aisathi
@@ -9,23 +9,20 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
     ports:
-      - "127.0.0.1:5432:5432"   # loopback only — never exposed to the host network
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "aisathi"]
       interval: 10s
 
-  redis:
-    image: redis:7-alpine
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-    volumes:
-      - redisdata:/data
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    command: azurite-blob --blobHost 0.0.0.0
     ports:
-      - "127.0.0.1:6379:6379"   # loopback only
-    command: >
-      sh -c "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""
+      - "127.0.0.1:10000:10000"
+    volumes:
+      - azurite-data:/data
 
-  gateway:
+  app:
     build:
       context: .
       dockerfile: services/gateway/Dockerfile
@@ -35,7 +32,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      azurite:
         condition: service_started
     restart: unless-stopped
     healthcheck:
@@ -43,17 +40,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-  orchestrator-worker:
-    build:
-      context: .
-      dockerfile: services/orchestrator/Dockerfile
-    env_file: .env
-    command: celery -A services.orchestrator.celery_entrypoint worker --loglevel=info --concurrency=4 -Q celery
-    depends_on:
-      - redis
-      - postgres
-    restart: unless-stopped
 
   caddy:
     image: caddy:2-alpine
@@ -65,24 +51,11 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - gateway
-    restart: unless-stopped
-
-  # Optional, free, self-hosted LLM fallback tier. Disabled unless you
-  # set USE_LOCAL_MODELS=true in .env and have a GPU box. No third-party
-  # API involved — this runs entirely inside your own infrastructure.
-  ollama:
-    image: ollama/ollama:latest
-    profiles: ["local-models"]
-    ports:
-      - "127.0.0.1:11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
+      - app
     restart: unless-stopped
 
 volumes:
   pgdata:
-  redisdata:
+  azurite-data:
   caddy_data:
   caddy_config:
-  ollama_models:

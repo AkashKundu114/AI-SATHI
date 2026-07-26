@@ -23,10 +23,6 @@ class PendingNegotiation(TypedDict, total=False):
 
 
 class PendingPriceChat(TypedDict, total=False):
-    """State for price_chat_node.py — the friendly SELLER-facing
-    conversation to agree an asking price, distinct from PendingNegotiation
-    which handles a CUSTOMER's counter-offers after the price is already
-    set and a poster is already out."""
     floor_price: float
     proposed_price: float
     turns: int
@@ -67,8 +63,6 @@ class ConversationState(TypedDict, total=False):
     pending_negotiation: PendingNegotiation | None
     awaiting_negotiation: bool
 
-    # New: seller-facing "decide the price together" chat, run before a
-    # catalog poster is composed. See services/orchestrator/nodes/price_chat_node.py.
     pending_price_chat: PendingPriceChat | None
     awaiting_price_chat: bool
     agreed_price: float | None

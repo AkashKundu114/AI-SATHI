@@ -4,12 +4,20 @@ import re
 import uuid
 from datetime import date, datetime, timezone
 
-from jinja2 import Environment, FileSystemLoader
-from sqlalchemy import select, func
-from weasyprint import HTML
+try:
+    from jinja2 import Environment, FileSystemLoader  # type: ignore[import]
+except ImportError:
+    Environment = None  # type: ignore[assignment]
+    FileSystemLoader = None  # type: ignore[assignment]
 
-from shared.config.settings import get_settings
-from shared.storage.s3_client import get_s3_client
+from sqlalchemy import select, func  # type: ignore[import]
+
+try:
+    from weasyprint import HTML  # type: ignore[import]
+except ImportError:
+    HTML = None  # type: ignore[assignment]
+
+from shared.storage.blob_client import upload_bytes, generate_read_url
 from shared.db.models import LedgerEntry, SHGGroup, User
 from shared.db.session import get_db_session
 from shared.i18n.bengali_calendar import GREGORIAN_MONTHS_BENGALI, format_bangla_calendar_label
@@ -17,16 +25,10 @@ from shared.i18n.bengali_numbers import to_bengali_digits
 
 _TEMPLATE_DIR = "services/pdf_service/templates"
 
-# autoescape=True is load-bearing: every field rendered here can originate
-# from user voice input via LLM extraction. Combined with base_url=None below
-# (no remote fetch), this closes an SSRF/injection path in the PDF renderer.
 _env = Environment(loader=FileSystemLoader(_TEMPLATE_DIR), autoescape=True)
 
 _TAG_RE = re.compile(r"<[^>]*>")
 
-# NOTE: this dict now lives in shared/i18n/bengali_calendar.py as
-# GREGORIAN_MONTHS_BENGALI — kept as a local alias only so any other code
-# still importing BENGALI_MONTHS from this module doesn't break.
 BENGALI_MONTHS = GREGORIAN_MONTHS_BENGALI
 
 _BANK_LINKAGE_LABELS_BENGALI = {
@@ -38,17 +40,12 @@ _BANK_LINKAGE_LABELS_BENGALI = {
 
 
 def _clean(value: str | None, max_len: int = 120) -> str:
-    """Strip tags outright rather than relying on escaping alone — defense in
-    depth for a renderer (WeasyPrint) that would otherwise have outbound
-    network access if a tag with a remote src slipped through."""
     if not value:
         return ""
     return _TAG_RE.sub("", value).strip()[:max_len]
 
 
 async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
-    s = get_settings()
-
     async with get_db_session() as db:
         user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
         if user is None:
@@ -75,11 +72,6 @@ async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
             .all()
         )
 
-        # Business-continuity signal: banks weight a consistent multi-month
-        # record far more than one good month in isolation (this is a
-        # genuine, commonly-cited loan-underwriting heuristic, not specific
-        # to this product). Computed across the user's FULL ledger history,
-        # not just this reporting period.
         earliest_entry_date = (
             await db.execute(select(func.min(LedgerEntry.entry_date)).where(LedgerEntry.user_id == user_id))
         ).scalar_one_or_none()
@@ -97,10 +89,6 @@ async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
     total_income = sum(income_by_category.values())
     total_expense = sum(expense_by_category.values())
 
-    # Bangla calendar label uses the last day of the reporting month as its
-    # reference point — a secondary, clearly-marked "traditional/approximate"
-    # display alongside the authoritative Gregorian month/year below. See
-    # shared/i18n/bengali_calendar.py for the precision caveat.
     last_day_of_period = date.fromordinal(period_end.toordinal() - 1)
     bangla_calendar_label = format_bangla_calendar_label(last_day_of_period)
 
@@ -123,12 +111,6 @@ async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
         total_expense=total_expense,
         net_profit=total_income - total_expense,
         generated_date=datetime.now(timezone.utc).strftime("%d/%m/%Y"),
-        # --- bank-loan-grade additions, all rendered from data the schema
-        # already had (shg_groups.grade_level existed; bank_linkage_status
-        # is new, migrations/0005_shg_bank_linkage.sql). None of this is
-        # LLM-generated — every value here is a direct DB read or a plain
-        # date-arithmetic computation, kept in the same "deterministic
-        # facts, never invented" spirit as the rest of the P&L numbers. ---
         months_of_history=months_of_history,
         months_of_history_bengali=to_bengali_digits(months_of_history),
         shg_grade_level=shg.grade_level if shg else None,
@@ -143,23 +125,13 @@ async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
     pdf_bytes = HTML(string=html_content, base_url=None).write_pdf()
 
     s3_key = f"reports/{user_id}/{year}/{month}/{uuid.uuid4().hex[:8]}.pdf"
-    s3 = get_s3_client()
-    s3.put_object(
-        Bucket=s.s3_bucket, Key=s3_key, Body=pdf_bytes,
-        ContentType="application/pdf", ServerSideEncryption="AES256",
-    )
-    s3_url = s3.generate_presigned_url(
-        "get_object", Params={"Bucket": s.s3_bucket, "Key": s3_key}, ExpiresIn=86400
-    )
+    upload_bytes(s3_key, pdf_bytes, content_type="application/pdf")
+    s3_url = generate_read_url(s3_key)
 
     return {"s3_url": s3_url, "total_income": total_income, "total_expense": total_expense}
 
 
 def _months_of_history(earliest_entry_date, as_of: date) -> int:
-    """Whole months of ledger history, counted from the first ever entry to
-    the report's period end — e.g. a first entry in January and a March
-    report reads as 3. Returns 0 if there's no history yet (new user), never
-    negative, never a fabricated 'estimate'."""
     if earliest_entry_date is None:
         return 0
     first = earliest_entry_date.date() if hasattr(earliest_entry_date, "date") else earliest_entry_date

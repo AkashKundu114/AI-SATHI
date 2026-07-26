@@ -1,57 +1,5 @@
 from __future__ import annotations
 
-"""Shared knowledge base — the single source every orchestrator node reads
-from for cultural, seasonal, and market-timing context.
-
-WHY THIS EXISTS: the person asked for market/festival/seasonal/family-occasion
-awareness to be "shared among all agents" rather than duplicated per node.
-This module is that shared layer. `get_context_for_agents()` is the one
-function every node (pricing, negotiation, catalog, market_predictor) calls
-to get a consistent view of "what's going on right now that could move a
-price or a customer's mood."
-
-WHAT'S REAL VS. APPROXIMATE (read before extending this file):
-- FESTIVALS: dates for lunar/religious festivals (Durga Puja, Kali Puja, Eid,
-  Poush Mela, Rath Yatra, Saraswati Puja) shift year to year and were NOT
-  looked up per-year here -- `month_hint` below is a typical-month pattern,
-  not a fixed calendar. Before this goes to production, wire a real festival
-  calendar (see `sources_todo` below) or fetch from a government/panchang
-  API per year, the same way `bengali_calendar.py` already flags its
-  Bangla-calendar approximation.
-- LIFE-CYCLE OCCASIONS: names, sequence, and typical spend categories are
-  drawn from real, cited sources -- see `source_note` on each entry.
-  Hindu Bengali occasions: Wikipedia "Bengali Hindu wedding", "Aiburo
-  Bhaat", "Annaprashana"; bengalipurohitbangalore.com's puja list.
-  Muslim Bengali occasions (added in Pass 4, closing a gap flagged in
-  Pass 1): Wikipedia "Bengali Muslim wedding" and "Walima" -- Gaye Holud is
-  shared across both communities (also called "Haldi Kota"/"Tilwayi" in
-  Muslim Bengali usage per that source) rather than exclusive to either;
-  Nikah is the Islamic marriage contract ceremony (Mahr/dowry agreed,
-  witnessed, Nikahnama signed); Walima is the groom's-family reception,
-  functionally parallel to Bou Bhaat and sometimes called by that name in
-  Bengali usage. Aqiqah (newborn naming/first-haircut rite) is standard,
-  widely-documented Islamic practice, not from a single cited source here --
-  flagged as general-knowledge rather than a specific citation, unlike the
-  wedding entries above.
-- WHAT'S DELIBERATELY NOT HERE: caste, gotro/gon, and rashi (zodiac). See
-  the module docstring in `dignity_guidelines.py` for why -- short version:
-  none of the requested features (pricing, negotiation, festival timing,
-  loan documents) need it, and storing/personalizing on caste specifically
-  creates real discrimination risk for a financial-assistance tool serving
-  a population that can't easily contest misuse.
-- SCALE: this is ~21 festivals/occasions per category, not "100+". Reaching
-  100+ *verified* (not invented) entries needs either a live scraping
-  pipeline against a panchang/government calendar API (see `sources_todo`
-  at the bottom) or a manual research pass -- both are follow-up work, not
-  something to fabricate here.
-- CHRISTIAN BENGALI occasions (added Pass 5): sourcing here is genuinely
-  weaker than the Hindu/Muslim entries above -- the wedding entry draws on
-  a single non-academic source (a Medium personal-blog post), not a
-  Wikipedia-level reference, and baptism/funeral entries are GENERAL
-  Christian practice, not confirmed as Bengal-specific customs. Flagged
-  per-entry via `source_note`, not silently presented as equally solid.
-"""
-
 from dataclasses import dataclass, field
 
 
@@ -60,8 +8,8 @@ class LifeEvent:
     slug: str
     name_bengali: str
     name_english: str
-    community: str  # "hindu_bengali" | "muslim_bengali" | "shared" | "general"
-    category: str  # "birth" | "wedding" | "death" | "religious" | "housewarming"
+    community: str 
+    category: str  
     typical_spend_categories: list[str] = field(default_factory=list)
     demand_note_bengali: str = ""
     source_note: str = ""
@@ -72,7 +20,7 @@ class Festival:
     slug: str
     name_bengali: str
     name_english: str
-    month_hint: list[int]  # typical Gregorian month(s); NOT a fixed date -- see caveat above
+    month_hint: list[int]  
     demand_categories: list[str] = field(default_factory=list)
     demand_note_bengali: str = ""
 
@@ -82,18 +30,9 @@ class SeasonalPricePattern:
     season_bengali: str
     months: list[int]
     weather_note_bengali: str
-    price_effects: list[str]  # plain-language notes, not numeric claims
+    price_effects: list[str]
 
 
-# ---------------------------------------------------------------------------
-# Life-cycle occasions. `community` marks which population the term is most
-# associated with -- several (Gaye Holud, Bou Bhaat/Walima) are shared or
-# have direct parallels across communities; see source_note per entry.
-# Used for: anticipating a seller's demand ("Kantha/saree orders rise before
-# a wedding season"), and for the negotiation/pricing agent recognizing WHY
-# a seller might need cash urgently around a family event, without ever
-# asking the user to disclose more than they volunteer.
-# ---------------------------------------------------------------------------
 LIFE_EVENTS: list[LifeEvent] = [
     LifeEvent(
         "mukhe_bhaat", "মুখেভাত / অন্নপ্রাশন", "First rice ceremony (Annaprashan)",
@@ -204,19 +143,6 @@ LIFE_EVENTS: list[LifeEvent] = [
     ),
 ]
 
-# NOTE: only 14 entries above -- a real "100+" life-event catalog would need
-# every named regional puja (Jagadhhatri, Bipattarini, Manosha, etc. --
-# already listed by name only, no demand data, in the Hindu source above),
-# deeper Muslim Bengali entries beyond the wedding/birth ones here, and
-# stronger sourcing for the Christian Bengali entries just added. Flagged,
-# not filled with guesses.
-
-
-# ---------------------------------------------------------------------------
-# West Bengal festival calendar -- month_hint is typical-month, NOT a fixed
-# date (lunar festivals move every year). Wire a real panchang/government
-# calendar API before relying on this for anything date-specific.
-# ---------------------------------------------------------------------------
 FESTIVALS: list[Festival] = [
     Festival("poila_boishakh", "পয়লা বৈশাখ", "Bengali New Year", [4],
              ["food", "handicraft", "textile"], "নতুন বছরের কেনাকাটা ও মিষ্টির চাহিদা বাড়ে।"),
@@ -242,14 +168,6 @@ FESTIVALS: list[Festival] = [
              ["food"], "মাংসের চাহিদা বাড়ে। (চান্দ্র ক্যালেন্ডার -- তারিখ প্রতি বছর বদলায়)"),
 ]
 
-
-# ---------------------------------------------------------------------------
-# Seasonal weather -> generic price pattern. Plain-language, non-numeric --
-# these are directional notes ("monsoon disrupts leafy-vegetable supply"),
-# not price predictions. Real numeric seasonality should come from
-# `market_service/aggregator.py`'s own ledger-derived trend classification
-# (already built) and Agmarknet, not from this static file.
-# ---------------------------------------------------------------------------
 SEASONAL_PATTERNS: list[SeasonalPricePattern] = [
     SeasonalPricePattern(
         "গ্রীষ্ম (এপ্রিল-জুন)", [4, 5, 6],
@@ -289,15 +207,6 @@ SEASONAL_PATTERNS: list[SeasonalPricePattern] = [
 
 @dataclass
 class DistrictMela:
-    """District/block-specific fairs, distinct from the statewide FESTIVALS
-    list above. Added Pass 6, closing the 'add block-specific melas once
-    sourced per-block' item in sources_todo. `district` uses the same
-    plain-text district names as `users.district`/`shg_groups.district`
-    elsewhere in this schema (e.g. 'Birbhum', 'Bankura') -- matched via
-    simple substring containment in get_context_for_agents, not an exact
-    enum, since district spelling varies across this codebase's own free-text
-    fields (see shared/db/models.py -- district is a plain VARCHAR, not a
-    lookup table)."""
     slug: str
     name_bengali: str
     name_english: str
@@ -356,23 +265,6 @@ DISTRICT_MELAS: list[DistrictMela] = [
 
 
 def get_context_for_agents(month: int, block: str | None = None, district: str | None = None) -> dict:
-    """The single shared entry point every orchestrator node should call
-    (pricing_node, negotiation_node, catalog_node, market_predictor_node)
-    to get consistent seasonal/festival context instead of each node
-    hand-rolling its own guess. Returns plain data, not phrased Bengali
-    prose -- nodes still route final phrasing through model_router per the
-    existing "deterministic core, LLM only for language" pattern.
-
-    `block` is accepted for backward compatibility but not used to filter
-    anything -- West Bengal's statewide FESTIVALS are the same everywhere.
-    `district` (added Pass 6) DOES filter DISTRICT_MELAS below, via a
-    simple case-insensitive substring match against `users.district` /
-    `shg_groups.district`'s free-text value -- deliberately loose rather
-    than an exact-match enum, since this schema stores district as plain
-    text (see shared/db/models.py) and "Birbhum" vs "birbhum " vs
-    "Birbhum district" should all still match. Returns an empty list, never
-    a guess, if `district` is unset or doesn't match anything known.
-    """
     upcoming_festivals = [f for f in FESTIVALS if month in f.month_hint]
     season = next((s for s in SEASONAL_PATTERNS if month in s.months), None)
 
@@ -408,15 +300,9 @@ def find_life_event(slug: str) -> LifeEvent | None:
 
 
 def life_events_by_community(community: str) -> list[LifeEvent]:
-    """`community` matches "hindu_bengali" | "muslim_bengali" | "shared".
-    Note "shared" entries (e.g. Gaye Holud) should be included for BOTH
-    communities' views -- callers wanting a specific community's full list
-    should union their community's entries with "shared" ones, not query
-    "shared" alone."""
     return [e for e in LIFE_EVENTS if e.community == community]
 
 
-# Follow-up research needed before claiming "100+ verified" coverage:
 sources_todo = [
     "Wire a real panchang/lunar-calendar API (e.g. drikpanchang.com has no "
     "free API; check for a government or licensed provider) for exact "

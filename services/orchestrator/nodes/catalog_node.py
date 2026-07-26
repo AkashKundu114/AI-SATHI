@@ -4,8 +4,7 @@ import asyncio
 import logging
 import uuid
 
-from shared.config.settings import get_settings
-from shared.storage.s3_client import get_s3_client
+from shared.storage.blob_client import upload_bytes, download_bytes, generate_read_url
 from services.orchestrator.state import ConversationState
 from services.vision_service.rembg_processor import process_product_image
 from services.vision_service.vision_router import analyze_product_image, generate_captions
@@ -18,29 +17,19 @@ logger = logging.getLogger("catalog_node")
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
-# Bridge between the vision model's coarse category (textile/food/
-# handicraft/agriculture/other) and the freeform Bengali category strings
-# ledger entries use, for the market-trend note in _market_note() below.
-# Generated from shared/catalog/local_products.py — the single source of
-# truth for this codebase's product taxonomy — instead of a separately
-# hand-maintained dict that used to cover only 4 categories with 2-4
-# keywords each.
 _CATEGORY_KEYWORDS = category_keywords()
 
 
 async def catalog_node(state: ConversationState) -> dict:
-    s = get_settings()
-    raw_key = state.get("raw_image_s3_key")
+    raw_key = state.get("raw_image_s3_key")  
     if not raw_key:
         return {
             "outbound_messages": [{"type": "text", "body": "ছবিটা পেলাম না। আবার পাঠান।"}],
             "trace": ["catalog_node:no_image_key"],
         }
 
-    s3 = get_s3_client()
     try:
-        obj = await asyncio.to_thread(s3.get_object, Bucket=s.s3_bucket, Key=raw_key)
-        raw_bytes = obj["Body"].read()
+        raw_bytes = await asyncio.to_thread(download_bytes, raw_key)
     except Exception:
         return {
             "outbound_messages": [{"type": "text", "body": "ছবিটা লোড করতে সমস্যা হয়েছে। আবার পাঠান।"}],
@@ -61,9 +50,6 @@ async def catalog_node(state: ConversationState) -> dict:
         }
 
     try:
-        # Vision understanding: Sarvam Vision -> local Ollama vision fallback
-        # (see model_router.route_vision_completion). Caption generation is
-        # routed through the Sarvam text cascade inside generate_captions.
         product_info = await analyze_product_image(raw_bytes)
         captions, (price_min, price_max) = await generate_captions(product_info, shg_name=_shg_name(state))
     except ModelUnavailableError:
@@ -72,12 +58,6 @@ async def catalog_node(state: ConversationState) -> dict:
             "trace": ["catalog_node:model_unavailable"],
         }
 
-    # If the seller already went through price_chat_node ("একসাথে দাম ঠিক
-    # করি") for this turn, that agreed price overrides the vision-derived
-    # category range — the whole point of that chat was to land on a
-    # number the seller actually endorsed. Cleared immediately after use so
-    # a stale agreed_price from a previous, unrelated product never
-    # silently attaches to a new image later in the conversation.
     agreed_price = state.get("agreed_price")
     state_clears: dict = {}
     if agreed_price is not None:
@@ -88,10 +68,7 @@ async def catalog_node(state: ConversationState) -> dict:
 
     processed_key = f"catalog/{state.get('user_id', 'unknown')}/{uuid.uuid4().hex[:10]}.png"
     try:
-        await asyncio.to_thread(
-            s3.put_object, Bucket=s.s3_bucket, Key=processed_key, Body=processed_bytes,
-            ContentType="image/png", ServerSideEncryption="AES256",
-        )
+        await asyncio.to_thread(upload_bytes, processed_key, processed_bytes, "image/png")
     except Exception:
         return {
             "outbound_messages": [{"type": "text", "body": "ছবি সংরক্ষণ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।"}],
@@ -99,7 +76,7 @@ async def catalog_node(state: ConversationState) -> dict:
         }
 
     outbound_messages, poster_key, poster_tier = await _build_delivery_messages(
-        s3, s, processed_bytes, processed_key, product_info, captions, price_min, price_max,
+        processed_bytes, processed_key, product_info, captions, price_min, price_max,
         market_note, state,
     )
 
@@ -120,12 +97,7 @@ async def catalog_node(state: ConversationState) -> dict:
     }
 
 
-async def _build_delivery_messages(s3, s, processed_bytes, processed_key, product_info, captions, price_min, price_max, market_note, state):
-    """Tries Flux Pro first (if configured), falls back to the free local
-    Pillow composite (a single shareable poster: photo + price + caption
-    banner), and finally to the original photo + separate caption messages
-    if neither poster tier can produce output (e.g. no Flux key AND no
-    Bengali font installed — see assets/fonts/README.md)."""
+async def _build_delivery_messages(processed_bytes, processed_key, product_info, captions, price_min, price_max, market_note, state):
     ad_caption_full = captions["ad_caption"] + (f"\n{market_note}" if market_note else "")
 
     poster_bytes, poster_tier = await generate_poster(
@@ -138,16 +110,10 @@ async def _build_delivery_messages(s3, s, processed_bytes, processed_key, produc
     )
 
     if poster_bytes:
-        ext = "jpg"
-        poster_key = processed_key.replace(".png", f"-poster-{poster_tier}.{ext}")
+        poster_key = processed_key.replace(".png", f"-poster-{poster_tier}.jpg")
         try:
-            await asyncio.to_thread(
-                s3.put_object, Bucket=s.s3_bucket, Key=poster_key, Body=poster_bytes,
-                ContentType="image/jpeg", ServerSideEncryption="AES256",
-            )
-            poster_url = s3.generate_presigned_url(
-                "get_object", Params={"Bucket": s.s3_bucket, "Key": poster_key}, ExpiresIn=86400
-            )
+            await asyncio.to_thread(upload_bytes, poster_key, poster_bytes, "image/jpeg")
+            poster_url = generate_read_url(poster_key)
             return (
                 [
                     {"type": "image", "url": poster_url, "caption": captions["whatsapp_caption"]},
@@ -159,9 +125,15 @@ async def _build_delivery_messages(s3, s, processed_bytes, processed_key, produc
         except Exception:
             logger.warning("poster upload failed (tier=%s), falling back to plain image delivery", poster_tier)
 
-    processed_url = s3.generate_presigned_url(
-        "get_object", Params={"Bucket": s.s3_bucket, "Key": processed_key}, ExpiresIn=86400
-    )
+    try:
+        processed_url = generate_read_url(processed_key)
+    except Exception:
+        return (
+            [{"type": "text", "body": "ছবি পাঠাতে একটু সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।"}],
+            None,
+            "none",
+        )
+
     messages = [
         {"type": "image", "url": processed_url, "caption": captions["whatsapp_caption"]},
         {"type": "text", "body": "📣 বিজ্ঞাপনের জন্য এই সংক্ষিপ্ত বার্তাটিও ব্যবহার করতে পারেন:\n\n" + ad_caption_full},
@@ -171,9 +143,6 @@ async def _build_delivery_messages(s3, s, processed_bytes, processed_key, produc
 
 
 async def _market_note(state: ConversationState, vision_category: str) -> str | None:
-    """Best-effort, privacy-respecting market signal (reuses Feature 8's
-    k-anonymized aggregator, so the same 5-distinct-seller floor applies).
-    Returns None — never a fabricated claim — if nothing matches."""
     profile = state.get("user_profile") or {}
     block = profile.get("block")
     keywords = _CATEGORY_KEYWORDS.get(vision_category)
@@ -183,7 +152,7 @@ async def _market_note(state: ConversationState, vision_category: str) -> str | 
     try:
         rows = await block_sales_trend(block)
     except Exception:
-        return None  # optional enrichment — never block catalog delivery on this
+        return None
 
     by_category: dict[str, list[dict]] = {}
     for row in rows:
@@ -204,11 +173,6 @@ def _shg_name(state: ConversationState) -> str:
 
 
 def _product_label_bengali(product_info: dict) -> str:
-    """Prefers the local product taxonomy's Bengali name (e.g. 'কাঁথা /
-    কাঁথা স্টিচ শাড়ি' for a vision match on 'kantha saree') over the raw
-    English product_type the vision model returned, for anything shown to
-    the user (poster title, etc.). Falls back to a generic 'পণ্য' only if
-    neither the local catalog nor the vision model gave us anything."""
     local_match = find_local_product_by_slug(product_info.get("product_type", ""))
     if local_match:
         return local_match["name_bengali"]
@@ -239,4 +203,4 @@ async def _record_creation(state, raw_key, processed_key, product_info, captions
             )
             await db.commit()
     except Exception:
-        pass  # the WhatsApp reply already went out; a failed audit-row write shouldn't retry the whole turn
+        pass

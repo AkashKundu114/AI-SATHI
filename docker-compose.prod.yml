@@ -2,14 +2,14 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: kothkori
-      POSTGRES_USER: kothkori
+      POSTGRES_DB: aisathi
+      POSTGRES_USER: aisathi
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kothkori -d kothkori"]
+      test: ["CMD-SHELL", "pg_isready -U aisathi -d aisathi"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -2,38 +2,20 @@ fastapi==0.111.0
 uvicorn[standard]==0.30.1
 httpx==0.27.0
 pydantic-settings==2.3.3
-redis[asyncio]==5.0.6
-celery==5.4.0
 sqlalchemy[asyncio]==2.0.30
 asyncpg==0.29.0
 langgraph==0.2.20
 langgraph-checkpoint-postgres==1.0.10
 psycopg[binary]==3.3.4
-langfuse==2.43.3
 faster-whisper==1.0.3
 weasyprint==62.3
 jinja2==3.1.4
 rembg==2.0.59
 onnxruntime==1.18.1
 Pillow==10.4.0
-boto3==1.34.0
+azure-storage-blob==12.20.0
 pypdf==4.3.1
 pytest==8.2.2
 pytest-asyncio==0.23.7
 ruff==0.5.0
 mypy==1.10.0
-
-# NOTE: the `openai` package is NOT a required dependency anymore — no
-# OpenAI service is called anywhere in this codebase. It is only imported
-# lazily, inside services/translation_service/sarvam_client.py's
-# chat_completion_self_hosted(), as a *wire-protocol* client against your
-# own self-hosted vLLM box (which happens to speak the OpenAI-compatible
-# API shape). That function is optional and only used if you set
-# SARVAM_LOCAL_BASE_URL. Uncomment below only if you use that path:
-# openai==1.51.0
-
-# pypdf==4.3.1 above: used only by scripts/seed_schemes.py for extracting
-# text from official government scheme PDFs at seed time — not a runtime
-# dependency for the bot itself, kept in the main requirements.txt anyway
-# since this file is what `make test`/`make dev` install from and the seed
-# script is expected to be run from the same environment.

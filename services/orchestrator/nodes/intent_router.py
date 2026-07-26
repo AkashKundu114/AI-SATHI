@@ -14,11 +14,6 @@ REPORT_KEYWORDS = {"report", "রিপোর্ট", "maaser hisab", "মাস
 MARKET_KEYWORDS = {"ki banabo", "কি বানাবো", "bazar", "বাজার", "chahida", "চাহিদা", "demand"}
 PRICING_KEYWORDS = {"দাম", "কত দামে", "price", "koto dam", "দাম কত"}
 NEGOTIATION_KEYWORDS = {"দরদাম", "দর কষাকষি", "bargain", "negotiate", "কমান", "কম দামে বলেছে"}
-# Distinct from PRICING_KEYWORDS: PRICING gives a one-shot deterministic
-# recommendation; PRICE_CHAT starts the multi-turn "decide together, like a
-# friend" conversation in price_chat_node.py. Checked before the broader
-# PRICING keywords so an explicit "একসাথে দাম ঠিক করি" routes to the chat,
-# not the one-shot recommendation.
 PRICE_CHAT_KEYWORDS = {"একসাথে দাম", "দাম ঠিক করি", "discuss price", "দাম আলোচনা"}
 
 INTENT_CLASSIFY_SYSTEM = (
@@ -52,8 +47,6 @@ async def classify_intent(state: ConversationState) -> dict:
             system=INTENT_CLASSIFY_SYSTEM, prompt=text, criticality=TaskCriticality.ROUTINE
         )
     except ModelUnavailableError:
-        # Keyword matching already failed above; without the model we can't
-        # classify — fall back to the unhandled-feature menu rather than crash.
         return {"active_feature": "IDLE", "trace": ["intent_router:model_unavailable"]}
 
     try:

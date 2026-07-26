@@ -1,7 +1,3 @@
-"""Dummy-but-valid required env vars so Settings() can be instantiated in
-tests without a real .env file or real credentials. Individual tests still
-monkeypatch specific values (and must call get_settings.cache_clear()
-before/after, since it's lru_cache'd) when they need to control behavior."""
 import os
 
 _DEFAULTS = {

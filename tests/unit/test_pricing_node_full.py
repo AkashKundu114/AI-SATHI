@@ -57,7 +57,6 @@ async def test_profile_with_no_production_cost_returns_no_profile_message(monkey
 
 @pytest.mark.asyncio
 async def test_negative_cost_with_no_minimum_price_refuses_rather_than_use_zero_floor(monkeypatch):
-    # MED-1 regression: a bad production_cost must not silently produce a ₹0 floor
     monkeypatch.setattr(node_module, "get_db_session", _fake_get_db_session(profile=_profile(production_cost=-500, minimum_price=None)))
     result = await node_module.pricing_node({"user_id": "u1"})
     assert result["trace"] == ["pricing_node:non_positive_floor"]
@@ -108,7 +107,7 @@ async def test_market_trend_lookup_failure_does_not_crash_pricing(monkeypatch):
     monkeypatch.setattr(node_module, "route_completion", _fake_completion)
 
     result = await node_module.pricing_node({"user_id": "u1", "user_profile": {"block": "Balidewanganj"}})
-    assert result["market_report"] is None  # market signal silently skipped, not a crash
+    assert result["market_report"] is None 
 
 
 @pytest.mark.asyncio
@@ -121,7 +120,7 @@ async def test_model_unavailable_during_phrasing_still_returns_price(monkeypatch
     monkeypatch.setattr(node_module, "route_completion", _raise)
 
     result = await node_module.pricing_node({"user_id": "u1"})
-    assert "₹130" in result["outbound_messages"][0]["body"]  # price still shown even without explanation
+    assert "₹130" in result["outbound_messages"][0]["body"]
 
 
 @pytest.mark.asyncio

@@ -1,13 +1,12 @@
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-import hmac, hashlib, json, time, uuid, logging
-
-import redis.asyncio as aioredis
+import hmac, hashlib, json, uuid, logging
 
 from shared.config.settings import get_settings
-from shared.storage.s3_client import get_s3_client
+from shared.storage.blob_client import upload_bytes
+from shared.db.dedup import mark_seen_or_skip, check_and_increment_rate_limit
 from shared.whatsapp.parser import parse_webhook_payload
-from services.orchestrator.celery_entrypoint import process_turn
+from services.gateway.turn_processor import process_turn_and_dispatch
 from services.voice_gateway.provider_cascade import transcribe
 from shared.whatsapp.media import (
     download_whatsapp_audio,
@@ -19,17 +18,6 @@ logger = logging.getLogger("gateway")
 
 app = FastAPI(title="AI-SATHI Gateway", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
-
-_redis: aioredis.Redis | None = None
-DEDUP_TTL_SECONDS = 86400
-
-
-async def get_redis() -> aioredis.Redis:
-    global _redis
-    if _redis is None:
-        s = get_settings()
-        _redis = aioredis.from_url(s.redis_url, decode_responses=True)
-    return _redis
 
 
 @app.get("/health")
@@ -71,19 +59,13 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
         if s.max_text_message_chars and msg.text and len(msg.text) > s.max_text_message_chars:
             msg.text = msg.text[: s.max_text_message_chars]
 
-        redis = await get_redis()
+        is_new = await mark_seen_or_skip(msg.message_id)
+        if not is_new:
+            return {"status": "ok"}
 
-        was_new = await redis.set(
-            f"dedup:{msg.message_id}", "1", ex=DEDUP_TTL_SECONDS, nx=True
-        )
-        if not was_new:
-            return {"status": "ok"} 
-
-        rate_key = f"ratelimit:{msg.from_number}:{int(time.time() // 3600)}"
-        count = await redis.incr(rate_key)
-        await redis.expire(rate_key, 3600)
-        if count > s.max_messages_per_hour:
-            return {"status": "ok"} 
+        under_limit = await check_and_increment_rate_limit(msg.from_number, s.max_messages_per_hour)
+        if not under_limit:
+            return {"status": "ok"}
 
         background_tasks.add_task(_dispatch_to_orchestrator, msg)
         return {"status": "ok"}
@@ -112,15 +94,9 @@ async def _dispatch_to_orchestrator(msg):
 
         elif msg.message_type == "image":
             image_bytes = await download_whatsapp_image(msg.image_id)
-            s3 = get_s3_client()
             key = f"catalog-raw/{msg.from_number}/{uuid.uuid4().hex[:10]}.jpg"
-            s3.put_object(
-                Bucket=s.s3_bucket,
-                Key=key,
-                Body=image_bytes,
-                ServerSideEncryption="AES256",
-            )
-            turn_input["raw_image_s3_key"] = key
+            upload_bytes(key, image_bytes, content_type="image/jpeg")
+            turn_input["raw_image_s3_key"] = key  # kept as the same state field name — see turn_processor.py note
 
         elif msg.message_type == "interactive":
             turn_input["raw_input_text"] = json.dumps(msg.interactive_payload or {})
@@ -128,7 +104,7 @@ async def _dispatch_to_orchestrator(msg):
         else:
             return
 
-        process_turn.delay(msg.from_number, turn_input)
+        await process_turn_and_dispatch(msg.from_number, turn_input)
 
     except MediaTooLargeError:
         from shared.whatsapp.sender import send_text

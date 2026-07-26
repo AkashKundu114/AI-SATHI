@@ -1,51 +1,6 @@
 from __future__ import annotations
 
-"""West Bengal crop sowing/harvest calendar -- distinct from
-shared/catalog/local_products.py (which prices finished SHG products like
-Kantha or papad) and from context.py's SEASONAL_PATTERNS (which are
-generic weather notes, not crop-specific). This module answers the
-specific thing asked for: "which products, crops, etc changes price in
-which months/weather."
-
-THE CORE SIGNAL THIS ENCODES (basic, well-established agronomics, not
-specific to this codebase): a crop's local market price is typically at
-its LOWEST right around harvest month (supply glut) and at its HIGHEST in
-the lean months before the next harvest. This is genuinely useful for two
-of this product's audiences differently:
-  - A SHG member who grows/sells a crop directly benefits from knowing
-    when supply (and therefore competition) will be highest, so she can
-    plan storage/processing (e.g. turning potatoes into a preserved
-    product) instead of selling at the harvest-month trough.
-  - A SHG member who BUYS a crop as a raw material for her business
-    (e.g. mustard oil, jute handicraft) benefits from knowing when it's
-    cheapest to buy in bulk.
-market_predictor_node.py surfaces this as an additional signal alongside
-the existing ledger-derived trend classification and Agmarknet data --
-never as a replacement for either, since actual local price still depends
-on real supply/demand that this static calendar can't see.
-
-SOURCING AND ITS LIMITS -- read before trusting this for anything
-consequential:
-Crop/district associations (Aman/Aus/Boro paddy, jute ~66% of India's
-need grown in WB, potato concentrated in Hooghly/Bardhaman, mustard as a
-rabi oilseed) are drawn from multiple WBCS/ICAR/agrifarming.in sources
-found via search and are well-established, not controversial. The exact
-SOWING/HARVEST MONTH RANGES below are standard agronomic knowledge for
-these crop types in Eastern India, not read verbatim off any single
-source -- one scraped source in this search had visibly garbled/scrambled
-sowing-vs-harvest months for Aman vs Boro (internally inconsistent with
-itself), and rather than propagate that error, the ranges here reflect
-the standard, broadly-taught pattern (Aman: monsoon-sown, winter-harvested;
-Boro: winter-sown, summer-harvested; Aus: summer-sown, monsoon-harvested).
-**Verify against a local KVK (Krishi Vigyan Kendra) advisory for the
-specific district before treating these month ranges as precise** --
-actual sowing/harvest dates shift with monsoon timing and vary by
-sub-region, the same caveat this codebase already applies to its Bangla
-calendar and festival-date approximations.
-"""
-
 from dataclasses import dataclass, field
-
 
 @dataclass
 class CropSeason:
@@ -120,15 +75,10 @@ CROP_CALENDAR: list[CropSeason] = [
 
 
 def crops_at_harvest(month: int) -> list[CropSeason]:
-    """Crops typically being harvested this month -- local supply glut,
-    typically the CHEAPEST time to buy this crop as a raw material, and
-    typically the WORST time to sell it fresh without storage/processing."""
     return [c for c in CROP_CALENDAR if month in c.harvest_months]
 
 
 def crops_being_sown(month: int) -> list[CropSeason]:
-    """Crops typically being sown this month -- signals farming-household
-    cash flow going OUT (seed/input costs), not a price signal by itself."""
     return [c for c in CROP_CALENDAR if month in c.sowing_months]
 
 
@@ -137,9 +87,6 @@ def find_crop(slug: str) -> CropSeason | None:
 
 
 def crops_for_district(district: str) -> list[CropSeason]:
-    """Same loose substring-match philosophy as context.py's district-mela
-    matching -- district fields across this schema are free text, not an
-    enum. Returns [] rather than a guess if nothing matches."""
     if not district:
         return []
     d = district.strip().lower()

@@ -34,8 +34,6 @@ async def _no_reason(**kwargs):
     return {"text": "", "model_used": "sarvam-advanced", "escalated": False}
 
 
-# --- starting a negotiation --------------------------------------------------
-
 @pytest.mark.asyncio
 async def test_no_profile_returns_no_profile_message():
     result = await node_module.negotiation_node({})  # no user_id at all
@@ -44,8 +42,6 @@ async def test_no_profile_returns_no_profile_message():
 
 @pytest.mark.asyncio
 async def test_negative_cost_profile_treated_as_no_profile(monkeypatch):
-    # MED-1 regression via pricing_node._recommend's clamping: a bad floor must
-    # never let negotiation proceed as if a real floor existed.
     monkeypatch.setattr(node_module, "get_db_session", _fake_get_db_session(profile=_profile(production_cost=-500, minimum_price=None)))
     result = await node_module.negotiation_node({"user_id": "u1"})
     assert result["outbound_messages"][0]["body"] == node_module.NO_PROFILE_MSG
@@ -80,8 +76,6 @@ async def test_starting_offer_below_floor_gets_a_counter(monkeypatch):
     assert result["pending_negotiation"]["last_counter"] == 130.0  # turn 1 holds at floor
     assert "130" in result["outbound_messages"][0]["body"]
 
-
-# --- continuing a negotiation -------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_accepting_previous_counter_finalizes_deal(monkeypatch):
@@ -121,8 +115,6 @@ async def test_second_counter_splits_gap_between_floor_and_offer(monkeypatch):
     assert result["pending_negotiation"]["last_counter"] == 200.0
 
 
-# --- reason generation is defense-in-depth, not the source of the number ---
-
 @pytest.mark.asyncio
 async def test_model_unavailable_during_reason_generation_still_completes_deal(monkeypatch):
     async def _raise(**kwargs):
@@ -132,7 +124,7 @@ async def test_model_unavailable_during_reason_generation_still_completes_deal(m
 
     pending = {"floor_price": 130.0, "product_type": "papad", "turns": 1, "last_counter": 130.0}
     result = await node_module.negotiation_node({"pending_negotiation": pending, "raw_input_text": "হ্যাঁ"})
-    assert "130" in result["outbound_messages"][0]["body"]  # deal still finalized without a reason sentence
+    assert "130" in result["outbound_messages"][0]["body"] 
 
 
 @pytest.mark.asyncio
@@ -144,7 +136,7 @@ async def test_reason_containing_a_number_is_discarded_not_shown(monkeypatch):
 
     pending = {"floor_price": 130.0, "product_type": "papad", "turns": 1, "last_counter": 130.0}
     result = await node_module.negotiation_node({"pending_negotiation": pending, "raw_input_text": "হ্যাঁ"})
-    assert "৫০" not in result["outbound_messages"][0]["body"]  # the model's own bad number never reaches the customer
+    assert "৫০" not in result["outbound_messages"][0]["body"]  
 
 
 @pytest.mark.asyncio

@@ -1,26 +1,6 @@
 from __future__ import annotations
 
-"""Negotiation technique knowledge, shared by negotiation_node.py and the
-new price_chat_node.py.
-
-IMPORTANT — how this is used, to stay consistent with this codebase's
-existing safety pattern (see docs/red-team-agents-v2.md CRIT-1 and
-negotiation_node.py's module docstring): these are STRATEGY LABELS and
-short coaching phrases, not templates that get filled with a number. The
-LLM is told which strategy applies to the current turn and asked for a
-digit-free line reflecting it; the actual price is always interpolated
-from code (pricing_node._recommend / negotiation_node._compute_counter_offer).
-This file never produces a price itself.
-
-Techniques below are standard, widely-taught negotiation concepts
-(anchoring, BATNA, reciprocity, silence, bundling, walk-away power) — not
-proprietary or invented. Translated into short, warm Bengali phrasing
-appropriate for a friendly seller coaching a WhatsApp bot, not a
-boardroom.
-"""
-
 from dataclasses import dataclass
-
 
 @dataclass
 class NegotiationTactic:
@@ -84,9 +64,6 @@ def tactic_for(situation_slug: str) -> NegotiationTactic | None:
 
 
 def choose_tactic(turn: int, offer_vs_floor_ratio: float, is_repeat_customer: bool = False) -> NegotiationTactic:
-    """Deterministic tactic selection — no LLM involved in picking the
-    strategy, only in phrasing the chosen one. `offer_vs_floor_ratio` =
-    offer / floor (e.g. 0.8 means offer is 20% below floor)."""
     if turn == 1:
         return tactic_for("anchor_high")
     if is_repeat_customer and offer_vs_floor_ratio >= 0.9:

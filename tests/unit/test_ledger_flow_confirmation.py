@@ -27,8 +27,7 @@ def test_confirmation_lines_use_bengali_digits():
     income, expense, net = ledger_node._confirmation_lines(_SAMPLE_PENDING)
     assert "৩০০" in income
     assert "১০০" in expense
-    assert "২০০" in net  # 300 - 100
-    # No stray Latin digits should appear in a Bengali-digit line
+    assert "২০০" in net
     assert not any(ch.isdigit() for ch in income if ch not in "০১২৩৪৫৬৭৮৯")
 
 
@@ -58,8 +57,6 @@ def test_flow_screen_data_handles_income_only_entry(monkeypatch):
 
 
 def test_legacy_build_confirmation_alias_still_works():
-    # ledger_confirm_node.py's correction loop calls _build_confirmation by
-    # name directly — must keep working unchanged after this refactor.
     text = ledger_node._build_confirmation(_SAMPLE_PENDING)
     assert "৩০০" in text
     assert "ঠিক আছে?" in text

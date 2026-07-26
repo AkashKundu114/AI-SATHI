@@ -1,14 +1,14 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region — southeastasia per requirement')
+@description('Azure region')
 param location string = 'southeastasia'
 
-@description('Short unique suffix, e.g. 5 random lowercase/digits, to keep globally-unique names collision-free')
+@description('Short unique suffix to keep globally-unique names collision-free')
 param uniqueSuffix string
 
 @secure()
 param postgresAdminPassword string
-param postgresAdminUser string = 'kothkori_admin'
+param postgresAdminUser string = 'aisathi_admin'
 
 @secure()
 param waPhoneNumberId string
@@ -21,20 +21,15 @@ param waAppSecret string
 @secure()
 param sarvamApiKey string
 
-@description('Set after the first deployment once images exist in ACR (see deploy.ps1). Defaults to a placeholder so the template is valid on first apply.')
-param gatewayImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
-param workerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+@description('Set after the first deployment once the real image exists in ACR (see deploy.ps1). Defaults to a placeholder so the template is valid on first apply.')
+param appImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
-var acrName        = 'aisathiacr${uniqueSuffix}'
-var storageName    = 'aisathist${uniqueSuffix}'
-var postgresName   = 'aisathi-pg-${uniqueSuffix}'
-var keyVaultName   = 'aisathi-kv-${uniqueSuffix}'
-var logWorkspace   = 'aisathi-logs'
-var envName        = 'aisathi-env'
-
-var redisPassword = uniqueString(resourceGroup().id, 'redis', uniqueSuffix)
-var minioRootUser = 'aisathi_minio'
-var minioRootPassword = uniqueString(resourceGroup().id, 'minio', uniqueSuffix)
+var acrName      = 'aisathiacr${uniqueSuffix}'
+var storageName  = 'aisathist${uniqueSuffix}'
+var postgresName = 'aisathi-pg-${uniqueSuffix}'
+var keyVaultName = 'aisathi-kv-${uniqueSuffix}'
+var logWorkspace = 'aisathi-logs'
+var envName      = 'aisathi-env'
 
 module acr 'modules/acr.bicep' = {
   name: 'acr'
@@ -75,9 +70,7 @@ module keyvault 'modules/keyvault.bicep' = {
     waAppSecret: waAppSecret
     sarvamApiKey: sarvamApiKey
     databaseUrl: databaseUrl
-    redisPassword: redisPassword
-    minioRootUser: minioRootUser
-    minioRootPassword: minioRootPassword
+    azureStorageConnectionString: storage.outputs.connectionString
   }
 }
 
@@ -96,21 +89,17 @@ module apps 'modules/containerapps.bicep' = {
     envName: envName
     logAnalyticsWorkspaceId: logs.outputs.workspaceId
     logAnalyticsWorkspaceKey: logs.outputs.workspaceKey
-    storageAccountName: storage.outputs.accountName
-    fileShareName: storage.outputs.fileShareName
-    storageAccountKey: storage.outputs.accountKey
     acrLoginServer: acr.outputs.loginServer
     acrName: acr.outputs.name
     keyVaultName: keyvault.outputs.name
     keyVaultUri: keyvault.outputs.uri
-    gatewayImage: gatewayImage
-    workerImage: workerImage
+    appImage: appImage
     waPhoneNumberId: waPhoneNumberId
   }
 }
 
 output acrLoginServer string = acr.outputs.loginServer
-output gatewayUrl string = 'https://${apps.outputs.gatewayFqdn}'
-output minioUrl string = 'https://${apps.outputs.minioFqdn}'
+output appUrl string = 'https://${apps.outputs.appFqdn}'
 output postgresFqdn string = postgres.outputs.fqdn
 output keyVaultName string = keyvault.outputs.name
+output storageAccountName string = storage.outputs.accountName

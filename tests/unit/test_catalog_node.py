@@ -143,7 +143,7 @@ async def test_happy_path_with_poster_sends_single_composited_image(monkeypatch)
     _default_mocks(monkeypatch, poster=(b"poster-bytes", "pillow"))
     result = await node_module.catalog_node({"raw_image_s3_key": "catalog-raw/x.jpg"})
 
-    assert len(result["outbound_messages"]) == 2  # poster image + english-caption offer
+    assert len(result["outbound_messages"]) == 2  
     assert "poster=pillow" in result["trace"][0]
 
 
@@ -152,11 +152,6 @@ async def test_poster_upload_failure_falls_back_to_plain_delivery(monkeypatch):
     s3 = _FakeS3(raise_on_put=False)
     _default_mocks(monkeypatch, s3=s3, poster=(b"poster-bytes", "pillow"))
 
-    # Real finding from writing this test: generate_presigned_url failing
-    # on the plain-image fallback path used to be uncaught entirely (only
-    # the poster branch above it had a try/except) — fixed in catalog_node
-    # to degrade gracefully here too, same as every other failure mode in
-    # this node.
     def _raise_presigned(*a, **kw):
         raise RuntimeError("presign failed")
 
@@ -173,8 +168,6 @@ async def test_unknown_vision_category_still_produces_a_result(monkeypatch):
     result = await node_module.catalog_node({"raw_image_s3_key": "catalog-raw/x.jpg"})
     assert result["catalog_result"]["product_type"] == "kolshi"
 
-
-# --- pure helper functions ---------------------------------------------------
 
 def test_product_label_bengali_uses_local_taxonomy_when_matched():
     assert node_module._product_label_bengali({"product_type": "papad"}) == "পাপড়"

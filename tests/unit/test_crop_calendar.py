@@ -24,8 +24,6 @@ def test_aman_paddy_is_the_only_crop_harvested_in_december():
 
 
 def test_no_crop_harvest_claimed_without_evidence_in_september():
-    # September is genuinely a lean month across this calendar's 6 crops --
-    # confirms the function doesn't silently return something for every month.
     sept_harvest = crops_at_harvest(9)
     slugs = {c.slug for c in sept_harvest}
     assert "aman_paddy" not in slugs
@@ -33,8 +31,6 @@ def test_no_crop_harvest_claimed_without_evidence_in_september():
 
 
 def test_crops_being_sown_is_distinct_from_harvest():
-    # Mustard is sown Oct-Nov, harvested Feb-Mar -- should never appear in
-    # both lists for the same month.
     for month in range(1, 13):
         sown = {c.slug for c in crops_being_sown(month)}
         harvested = {c.slug for c in crops_at_harvest(month)}

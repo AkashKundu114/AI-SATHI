@@ -8,8 +8,6 @@ from services.orchestrator.nodes import intent_router as node_module
 from services.orchestrator.model_router import ModelUnavailableError
 
 
-# --- keyword shortcuts never touch the model -------------------------------
-
 @pytest.mark.asyncio
 async def test_report_keyword_routes_without_calling_model(monkeypatch):
     async def _should_not_be_called(**kwargs):
@@ -34,8 +32,6 @@ async def test_financial_keyword_routes_to_ledger(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_negotiation_keyword_checked_before_pricing_keyword():
-    # "দরদাম" should route to NEGOTIATION even though nothing in the message
-    # matches a PRICING keyword — regression against reordering the checks.
     result = await node_module.classify_intent({"raw_input_text": "দরদাম করতে চাই"})
     assert result["active_feature"] == "NEGOTIATION"
 
@@ -52,8 +48,6 @@ async def test_pricing_keyword_routes_to_pricing():
     assert result["active_feature"] == "PRICING"
 
 
-# --- empty input short-circuits to IDLE, no model call ----------------------
-
 @pytest.mark.asyncio
 async def test_empty_input_returns_idle_without_calling_model(monkeypatch):
     async def _should_not_be_called(**kwargs):
@@ -65,8 +59,6 @@ async def test_empty_input_returns_idle_without_calling_model(monkeypatch):
     assert result["active_feature"] == "IDLE"
     assert result["trace"] == ["intent_router:empty_input"]
 
-
-# --- fallback to LLM classification when no keyword matches -----------------
 
 @pytest.mark.asyncio
 async def test_no_keyword_match_falls_through_to_model(monkeypatch):

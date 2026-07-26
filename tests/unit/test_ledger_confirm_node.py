@@ -39,8 +39,6 @@ _PENDING = {
 }
 
 
-# --- top-level branching -----------------------------------------------------
-
 @pytest.mark.asyncio
 async def test_no_pending_entry_resets_with_message():
     result = await node_module.ledger_confirm_node({"raw_input_text": "হ্যাঁ"})
@@ -64,8 +62,6 @@ async def test_unrecognized_reply_asks_yes_or_no():
     assert result["awaiting_confirmation"] is True
     assert "হ্যাঁ" in result["outbound_messages"][0]["body"]
 
-
-# --- affirmative -> _save -----------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_affirmative_reply_with_no_user_id_resets_with_message(monkeypatch):
@@ -122,8 +118,6 @@ async def test_db_commit_failure_resets_with_friendly_message(monkeypatch):
     assert result["trace"] == ["ledger_confirm_node:db_commit_failed"]
 
 
-# --- negative / correction-looking reply -> _apply_correction ---------------
-
 @pytest.mark.asyncio
 async def test_negative_reply_triggers_correction_flow(monkeypatch):
     async def _fake(**kwargs):
@@ -175,8 +169,6 @@ async def test_correction_malformed_json_asks_to_repeat(monkeypatch):
     result = await node_module.ledger_confirm_node(state)
     assert "সংশোধন বুঝতে পারলাম না" in result["outbound_messages"][0]["body"]
 
-
-# --- _validate_amount (already covered elsewhere, kept here for completeness)
 
 def test_validate_amount_rejects_negative():
     assert node_module._validate_amount(-1) is None

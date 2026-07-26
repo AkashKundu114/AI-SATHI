@@ -48,8 +48,6 @@ def test_contains_number_word_false_for_clean_text():
     assert contains_number_word("ভালো মানের পণ্য") is False
 
 
-# --- _months_of_history (bank-loan-grade PDF addition) ---------------------
-
 def test_months_of_history_none_when_no_entries():
     assert _months_of_history(None, date(2026, 7, 1)) == 0
 
@@ -59,11 +57,8 @@ def test_months_of_history_same_month_counts_as_one():
 
 
 def test_months_of_history_counts_inclusive_span():
-    # First entry in January, report as of March -> Jan, Feb, Mar = 3
     assert _months_of_history(datetime(2026, 1, 20), date(2026, 3, 31)) == 3
 
 
 def test_months_of_history_never_negative():
-    # Defensive: a future-dated first entry (shouldn't happen, but the
-    # function must not return a negative "months of history")
     assert _months_of_history(datetime(2026, 12, 1), date(2026, 1, 1)) == 0

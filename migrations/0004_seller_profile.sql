@@ -1,7 +1,3 @@
--- Backs the new Pricing Recommendation Agent (services/orchestrator/nodes/pricing_node.py).
--- Additive-only, safe to run against an existing DB (psql -f) or let it
--- apply automatically via docker-entrypoint-initdb.d on a fresh boot.
-
 CREATE TABLE IF NOT EXISTS seller_profiles (
   user_id UUID PRIMARY KEY REFERENCES users(id),
   product_type VARCHAR(100),

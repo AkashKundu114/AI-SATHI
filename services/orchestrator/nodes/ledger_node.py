@@ -125,16 +125,6 @@ async def ledger_extract_node(state: ConversationState) -> dict:
 
 
 def _build_confirmation_message(pending: dict, transcript: str) -> dict:
-    """Two delivery paths, same underlying numbers:
-      - If WA_LEDGER_CONFIRM_FLOW_ID is configured, send the tap-to-confirm
-        Flow (ledger_confirm_flow.json) — no free text to mistype/mishear
-        on the way to a permanent DB write.
-      - Otherwise, unchanged plain-text হ্যাঁ/না confirmation, exactly as
-        before this pass — nothing breaks for a deployment that hasn't set
-        up the Flow yet.
-    Both paths are consumed downstream by the SAME `_save()` in
-    ledger_confirm_node.py — see graph.py's routing in _route_after_profile_load.
-    """
     s = get_settings()
     body_text = _build_confirmation_text(pending)
 
@@ -187,8 +177,4 @@ def _build_confirmation_text(pending: dict) -> str:
 
 
 def _build_confirmation(pending: dict) -> str:
-    """Kept for backward compatibility — ledger_confirm_node.py's correction
-    loop still calls this directly by name after re-extracting a correction,
-    where the tap-to-confirm Flow doesn't apply (a correction reply is
-    already free text, so the response stays text too)."""
     return _build_confirmation_text(pending)

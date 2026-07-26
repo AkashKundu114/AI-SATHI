@@ -1,29 +1,5 @@
 from __future__ import annotations
 
-"""Handles the WhatsApp Flow ('ledger_confirm_flow.json') tap-to-confirm
-response, as an alternative front door to the same save/correct/discard
-logic already in ledger_confirm_node.py.
-
-WHY THIS EXISTS: the person asked that "before taking any db entry, the
-tool would verify using whatsapp flows showing them the form and when they
-tap yes to save it stores in a permanent db." The existing ledger_confirm_node
-already has a confirm/correct/discard loop, but it's driven by free-typed
-"হ্যাঁ"/"না" replies — which themselves can be mistyped or mis-transcribed.
-A tapped Flow choice removes that specific failure mode: there's no text
-to mis-hear or mis-type, just three visible buttons over the exact
-numbers that will be saved.
-
-This node does NOT duplicate the save/correction logic — it reuses
-ledger_confirm_node's `_save` and the LEDGER_CONFIRM state fields directly,
-so there is exactly one code path that ever writes to `ledger_entries`.
-Wiring note (graph.py): route a `message_type == "interactive"` turn to
-this node instead of `ledger_confirm_node` whenever
-`state["awaiting_confirmation"]` is true AND the interactive payload
-contains `confirmation_choice` (i.e. it came from this specific Flow, not
-the scheme-eligibility Flow) — check `payload.get("confirmation_choice")`
-before routing here.
-"""
-
 import json
 
 from services.orchestrator.state import ConversationState

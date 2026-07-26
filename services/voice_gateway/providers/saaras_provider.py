@@ -6,8 +6,6 @@ from shared.config.settings import get_settings
 
 
 async def transcribe(audio_bytes: bytes, language: str = "bn") -> dict:
-    """Saaras V3 (Sarvam's STT model) — replaces the old OpenAI Whisper API
-    tier. Same call shape as sarvam_provider's transcribe for consistency."""
     s = get_settings()
     if not s.sarvam_api_key:
         raise RuntimeError("SARVAM_API_KEY not configured")

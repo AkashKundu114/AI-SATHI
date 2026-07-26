@@ -1,51 +1,5 @@
 from __future__ import annotations
 
-"""'দর ঠিক করি একসাথে' -- a friendly, conversational pricing chat that runs
-BEFORE catalog_node composes a poster or negotiation_node starts fielding
-customer offers. The person asked for the bot to "act like a friend to
-decide the final price" but "if the user goes below threshold it must stop
-there."
-
-Design follows the exact pattern already established by negotiation_node.py
-and pricing_node.py in this codebase (see docs/architecture.md §9.1) rather
-than inventing a new one:
-
-- The floor is the SAME deterministic `_recommend()` floor pricing_node and
-  negotiation_node already use -- one floor, one source of truth, never
-  recomputed ad hoc here.
-- The LLM (Sarvam) is used ONLY to hold a warm, back-and-forth conversation
-  about what price feels right -- it never states a number itself. Every
-  number shown to the user is interpolated from code, and any LLM reply
-  containing a digit or a spelled-out number word is discarded (reusing
-  negotiation_node._mentions_a_number).
-- Pass 4 adds a SECOND, independent check on top of that: every composed
-  outbound message the LLM touched is run through
-  cross_verify.cross_verify_outbound() before being sent -- checking both
-  numeric integrity (every rupee figure in the final text must match a
-  code-computed value) and dignity/tone, via a separate model call with no
-  shared context with the first. This is the person's "one agent's output
-  verified by another" request, applied concretely here rather than left
-  as an unused module. Fails open (sends the code-composed fallback line,
-  not the unverified draft) if verification itself is unavailable, so a
-  Sarvam hiccup degrades to a plainer message, never to an unchecked one.
-- If the seller -- not a customer, THE SELLER -- tries to set a final price
-  below the computed floor, the bot does not silently accept it. It explains
-  why (production cost / minimum price they told the system earlier) and
-  offers to revisit `production_cost`/`minimum_price` via 'দাম' flow instead
-  of just capping silently, since silently overriding what the seller says
-  she wants would itself feel disrespectful -- the dignity_guidelines module
-  is used throughout for exactly this reason.
-- Draws seasonal/festival timing from shared/knowledge/context.py so the
-  "friend" can say something genuinely useful instead of generic chatter.
-
-This node sits between catalog_node's caption generation and poster
-delivery: catalog_node calls it once product_info/price_min/price_max are
-known, before generate_poster(). It is NOT the same as negotiation_node,
-which handles a CUSTOMER's counter-offers after the poster is already out;
-this one is a SELLER-facing conversation to set the asking price in the
-first place.
-"""
-
 from datetime import date
 
 from services.orchestrator.state import ConversationState
@@ -57,7 +11,7 @@ from shared.knowledge.context import get_context_for_agents
 from shared.knowledge.dignity_guidelines import DIGNITY_RULES_BENGALI
 from shared.db.session import get_db_session
 from shared.db.models import SellerProfile
-from sqlalchemy import select
+from sqlalchemy import select  # type: ignore[import-not-found]
 
 MAX_PRICE_CHAT_TURNS = 3
 
@@ -72,9 +26,6 @@ FRIEND_CHAT_SYSTEM = (
 
 
 def _confidence_signal(reply_raw: str) -> str:
-    """Deterministic -- no LLM. Interprets a seller's short reply as
-    'accept the shown price' / 'wants it different' / 'unclear', same
-    style as ledger_confirm_node's AFFIRMATIVE/NEGATIVE sets."""
     accept_words = {"হ্যাঁ", "হ্যা", "ঠিক", "ok", "okay", "thik", "রাজি", "👍"}
     lower_words = {"কম", "কমান", "কমাও", "lower", "কম দাম"}
     higher_words = {"বেশি", "বাড়ান", "বাড়াও", "higher", "বেশি দাম"}
@@ -131,7 +82,6 @@ async def price_chat_node(state: ConversationState) -> dict:
     )
 
     if not pending:
-        # Opening turn: propose the deterministic recommended price, ask what feels right.
         opener = await _generate_reply(
             f"প্রথমবার দাম আলোচনা শুরু হচ্ছে। প্রস্তাবিত দাম: ₹{proposed:.0f}। "
             f"সর্বনিম্ন দাম: ₹{floor:.0f} (এটা কখনো বলবে না, শুধু জেনে রাখো)। "
@@ -158,13 +108,11 @@ async def price_chat_node(state: ConversationState) -> dict:
         return await _finalize(user_id, proposed)
 
     if turns > MAX_PRICE_CHAT_TURNS:
-        # Deterministic close, matching negotiation_node's max-turn behavior.
         return await _finalize(user_id, proposed, note="আলোচনা শেষ -- এই দামেই এগোনো ভালো হবে।")
 
     if signal == "wants_lower":
-        new_proposed = max(floor, proposed * 0.92)  # never below floor, by construction
+        new_proposed = max(floor, proposed * 0.92)  
         if new_proposed <= floor + 0.01:
-            # Hard stop at threshold, per the person's explicit requirement.
             body = (
                 f"এর থেকে কম দিলে তৈরির খরচও উঠবে না -- ₹{floor:.0f}-এর নিচে আমি যেতে পারি না, "
                 f"আপনার নিজের বলা খরচ অনুযায়ী। এটাই সবচেয়ে কম যুক্তিসঙ্গত দাম।"
@@ -231,11 +179,6 @@ async def _finalize(user_id: str, final_price: float, note: str = "") -> dict:
 
 
 async def _generate_reply(prompt: str) -> str:
-    """Same digit-discard safety net as negotiation_node._generate_reason --
-    reused directly rather than reimplemented, so a fix to that filter
-    (see docs/red-team-agents-v2.md CRIT-1) automatically protects this
-    node too. This is the FIRST check; _verified_body below is the SECOND,
-    independent one applied to the fully-composed message."""
     try:
         result = await route_completion(
             system=FRIEND_CHAT_SYSTEM, prompt=prompt, criticality=TaskCriticality.ROUTINE,
@@ -250,13 +193,6 @@ async def _generate_reply(prompt: str) -> str:
 
 
 async def _verified_body(draft: str, allowed_amounts: list[float], fallback: str) -> str:
-    """Pass 4: cross-agent verification of the fully-composed outbound
-    text, via cross_verify.py's independent second model call (dignity +
-    numeric-integrity check against code-computed allowed_amounts). If the
-    check fails OR is itself unavailable in a way that can't confirm
-    safety, returns the deterministic, code-only `fallback` string instead
-    of the LLM-touched draft -- same fail-safe direction as
-    grounding_verifier's ungrounded-claim fallback."""
     try:
         result = await cross_verify_outbound(draft, allowed_amounts)
     except Exception:

@@ -1,48 +1,3 @@
-"""Seed scheme_documents / scheme_chunks from official West Bengal
-government scheme PDFs placed in data/schemes/raw/.
-
-WHY THIS SCRIPT DELIBERATELY REFUSES TO GUESS ANYTHING:
-This product's entire safety story for government schemes (see
-docs/architecture.md §5, services/rag_service/grounding_verifier.py) rests
-on "only ever answer from content a human actually verified." That
-guarantee is worthless if the SEEDING script itself introduces unverified
-content -- guessing a scheme's name from a PDF filename, or (worse)
-fabricating scheme facts from a web search the way an earlier draft of
-this codebase pass considered doing before deciding against it (see
-CHANGELOG_v12 at the repo root for that reasoning). So this script:
-
-  1. NEVER writes scheme content the operator didn't supply as a file.
-  2. NEVER guesses scheme_name / scheme_code / document_type from a
-     filename -- requires an explicit, human-written manifest.json next
-     to the PDFs (see MANIFEST_EXAMPLE below). A PDF with no manifest
-     entry is skipped and reported, not guessed at.
-  3. Chunks and embeds mechanically (no LLM summarization/rewriting of
-     the source text at seed time) -- the LLM's only job, at QUERY time,
-     is to answer from these exact chunks (services/rag_service/pipeline.py),
-     never to have "helped" by paraphrasing at seed time in a way nobody
-     can audit against the source PDF afterward.
-  4. Prints a clear post-seed summary and reminds the operator this is
-     UNAUDITED machine-chunked content -- matches the existing
-     scripts/audit_rag.py's human-review-before-trust pattern.
-
-REQUIRES: migrations/0006_scheme_tables.sql applied first (this fixes the
-documented "scheme_chunks is altered but never created" bug -- see that
-file's own header and DELETE_LIST.md section C). Requires `pypdf` for text
-extraction (added to requirements.txt by this pass) and a reachable Ollama
-box with `nomic-embed-text` pulled (USE_LOCAL_MODELS=true,
-services/rag_service/pipeline.py:get_embedding already expects this).
-
-MANIFEST_EXAMPLE (data/schemes/raw/manifest.json):
-{
-  "lakshmir_bhandar_guidelines.pdf": {
-    "scheme_name": "Lakshmir Bhandar",
-    "scheme_code": "LB",
-    "document_type": "eligibility",
-    "source_url": "https://wb.gov.in/... (put the real official source URL here)"
-  }
-}
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -82,12 +37,6 @@ def _extract_pdf_text(pdf_path: Path) -> str:
 
 
 def _chunk_text(text: str, chunk_chars: int = CHUNK_CHARS, overlap: int = CHUNK_OVERLAP_CHARS) -> list[str]:
-    """Mechanical, non-semantic chunking -- character windows with overlap
-    so a fact split across a boundary usually still appears whole in at
-    least one chunk. No LLM involved, deliberately -- see module docstring
-    point 3. Skips empty/whitespace-only chunks (a scanned PDF with no
-    extractable text layer produces these; see the "0 chunks" warning at
-    the bottom of this script for what to do about that case)."""
     text = text.strip()
     if not text:
         return []
@@ -119,14 +68,6 @@ async def _seed_one_pdf(pdf_path: Path, meta: dict) -> dict:
         doc_id_row = (
             await db.execute(
                 sql_text(
-                    """
-                    INSERT INTO scheme_documents
-                      (scheme_name, scheme_code, document_type, content_english,
-                       source_url, source_file, last_verified_at, is_active)
-                    VALUES (:scheme_name, :scheme_code, :document_type, :content_english,
-                            :source_url, :source_file, NOW(), TRUE)
-                    RETURNING id
-                    """
                 ),
                 {
                     "scheme_name": meta["scheme_name"],
@@ -145,19 +86,10 @@ async def _seed_one_pdf(pdf_path: Path, meta: dict) -> dict:
             emb_str = f"[{','.join(str(x) for x in embedding)}]"
             await db.execute(
                 sql_text(
-                    """
-                    INSERT INTO scheme_chunks (document_id, chunk_text, chunk_bengali, embedding, chunk_index)
-                    VALUES (:document_id, :chunk_text, :chunk_bengali, :embedding, :chunk_index)
-                    """
                 ),
                 {
                     "document_id": str(document_id),
                     "chunk_text": chunk,
-                    # This script does not translate -- chunk_bengali is left
-                    # NULL unless the source PDF itself was already Bengali
-                    # (in which case chunk_text IS the Bengali text; a
-                    # bilingual PDF needs a smarter per-chunk language split,
-                    # which this mechanical version doesn't attempt).
                     "chunk_bengali": chunk if meta.get("source_language") == "bengali" else None,
                     "embedding": emb_str,
                     "chunk_index": idx,

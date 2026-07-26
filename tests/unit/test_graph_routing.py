@@ -9,8 +9,6 @@ from services.orchestrator.graph import (
 )
 
 
-# --- _interactive_payload ---------------------------------------------------
-
 def test_interactive_payload_parses_json_for_interactive_messages():
     state = {"last_message_type": "interactive", "raw_input_text": '{"confirmation_choice": "confirm_save"}'}
     assert _interactive_payload(state) == {"confirmation_choice": "confirm_save"}
@@ -25,8 +23,6 @@ def test_interactive_payload_empty_for_malformed_json():
     state = {"last_message_type": "interactive", "raw_input_text": "not json"}
     assert _interactive_payload(state) == {}
 
-
-# --- _route_after_profile_load ---------------------------------------------
 
 def test_new_user_routes_to_onboarding():
     assert _route_after_profile_load({"is_new_user": True}) == "onboarding"
@@ -57,8 +53,6 @@ def test_awaiting_confirmation_with_plain_text_routes_to_text_node():
 
 
 def test_awaiting_confirmation_with_unrelated_interactive_payload_falls_back_to_text_node():
-    # e.g. a reply from the OLD scheme_eligibility_flow.json, which has no
-    # "confirmation_choice" key -- must not be mistaken for the ledger Flow.
     state = {
         "awaiting_confirmation": True,
         "last_message_type": "interactive",
@@ -78,8 +72,6 @@ def test_awaiting_price_chat_routes_to_price_chat():
 
 
 def test_confirmation_takes_priority_over_negotiation_and_price_chat():
-    # If multiple flags are somehow set at once, ledger confirmation (money
-    # about to be written to the DB) must win -- never silently skipped.
     state = {
         "awaiting_confirmation": True,
         "awaiting_negotiation": True,
@@ -99,8 +91,6 @@ def test_plain_text_with_no_pending_flags_routes_to_classify_intent():
     assert _route_after_profile_load(state) == "classify_intent"
 
 
-# --- _route_after_intent ----------------------------------------------------
-
 def test_route_after_intent_covers_every_feature():
     expected = {
         "LEDGER": "ledger",
@@ -110,13 +100,11 @@ def test_route_after_intent_covers_every_feature():
         "NEGOTIATION": "negotiation",
         "PRICE_CHAT": "price_chat",
         "IDLE": "unhandled",
-        "UNKNOWN_FEATURE": "unhandled",  # anything unrecognized falls through safely
+        "UNKNOWN_FEATURE": "unhandled", 
     }
     for feature, expected_node in expected.items():
         assert _route_after_intent({"active_feature": feature}) == expected_node
 
-
-# --- _route_after_price_chat -------------------------------------------------
 
 def test_price_chat_still_open_ends_the_turn():
     state = {"awaiting_price_chat": True, "agreed_price": None}
@@ -124,9 +112,6 @@ def test_price_chat_still_open_ends_the_turn():
 
 
 def test_price_chat_agreed_but_still_marked_awaiting_ends_the_turn():
-    # Defensive: agreed_price and awaiting_price_chat should never both be
-    # "final" at once, but if they were, don't hand off to catalog on a
-    # chat that technically isn't closed yet.
     state = {"awaiting_price_chat": True, "agreed_price": 250.0}
     assert _route_after_price_chat(state) == "end"
 

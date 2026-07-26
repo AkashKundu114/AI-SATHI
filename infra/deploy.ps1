@@ -1,19 +1,3 @@
-<#
-============================================================================
- AI-SATHI — Bicep deployment wrapper
- Two phases, because the Container Apps in main.bicep need images that
- can't exist until the ACR they're pushed to already exists:
-
-   Phase 1: az deployment group create   -> creates everything, gateway/
-            worker start on a placeholder "hello world" image so the
-            template is valid on a from-scratch subscription.
-   Phase 2: az acr build (gateway + worker) -> az containerapp update
-            -> apps now run your actual code.
-
- Run from the repository root.
-============================================================================
-#>
-
 [CmdletBinding()]
 param(
     [string]$ResourceGroup = "ai-sathi-prod",
@@ -38,7 +22,7 @@ $WaWebhookVerify   = Read-PlainSecret "WhatsApp WA_WEBHOOK_VERIFY_TOKEN (you cho
 $WaAppSecret       = Read-PlainSecret "WhatsApp WA_APP_SECRET"
 $SarvamApiKey      = Read-PlainSecret "Sarvam SARVAM_API_KEY"
 
-Write-Host "==== Phase 1: deploying infrastructure (placeholder app images) ===="
+Write-Host "==== Phase 1: deploying infrastructure (placeholder app image) ===="
 az group create --name $ResourceGroup --location $Location | Out-Null
 
 $DeployOutput = az deployment group create `
@@ -57,43 +41,34 @@ $DeployOutput = az deployment group create `
 $AcrLoginServer = $DeployOutput.properties.outputs.acrLoginServer.value
 $AcrName = $AcrLoginServer.Split('.')[0]
 
-Write-Host "==== Phase 2: building and pushing application images ===="
+Write-Host "==== Phase 2: building and pushing the application image ===="
 
-$GatewayDockerfile = Join-Path $RepoRoot "services/gateway/Dockerfile"
-$OrchestratorDockerfile = Join-Path $RepoRoot "services/orchestrator/Dockerfile"
+$AppDockerfile = Join-Path $RepoRoot "services/gateway/Dockerfile"
 
-if (-not (Test-Path $GatewayDockerfile) -or -not (Test-Path $OrchestratorDockerfile)) {
-    Write-Host "Dockerfiles not found under $RepoRoot." -ForegroundColor Yellow
+if (-not (Test-Path $AppDockerfile)) {
+    Write-Host "Dockerfile not found under $RepoRoot." -ForegroundColor Yellow
     Write-Host "Re-run this script from the repo root, or build/push manually:"
-    Write-Host "  az acr build --registry $AcrName --image ai-sathi-gateway:latest --file services/gateway/Dockerfile ."
-    Write-Host "  az acr build --registry $AcrName --image ai-sathi-worker:latest --file services/orchestrator/Dockerfile ."
-    Write-Host "Then: az containerapp update --name ai-sathi-gateway --resource-group $ResourceGroup --image $AcrLoginServer/ai-sathi-gateway:latest"
-    Write-Host "      az containerapp update --name ai-sathi-worker  --resource-group $ResourceGroup --image $AcrLoginServer/ai-sathi-worker:latest"
+    Write-Host "  az acr build --registry $AcrName --image ai-sathi-app:latest --file services/gateway/Dockerfile ."
+    Write-Host "Then: az containerapp update --name ai-sathi-app --resource-group $ResourceGroup --image $AcrLoginServer/ai-sathi-app:latest"
     exit 0
 }
 
-az acr build --registry $AcrName --image "ai-sathi-gateway:latest" --file $GatewayDockerfile $RepoRoot
-az acr build --registry $AcrName --image "ai-sathi-worker:latest" --file $OrchestratorDockerfile $RepoRoot
+az acr build --registry $AcrName --image "ai-sathi-app:latest" --file $AppDockerfile $RepoRoot
 
-Write-Host "==== Pointing the container apps at the real images ===="
+Write-Host "==== Pointing the container app at the real image ===="
 az containerapp update `
-    --name ai-sathi-gateway `
+    --name ai-sathi-app `
     --resource-group $ResourceGroup `
-    --image "$AcrLoginServer/ai-sathi-gateway:latest" | Out-Null
+    --image "$AcrLoginServer/ai-sathi-app:latest" | Out-Null
 
-az containerapp update `
-    --name ai-sathi-worker `
-    --resource-group $ResourceGroup `
-    --image "$AcrLoginServer/ai-sathi-worker:latest" | Out-Null
-
-$GatewayUrl = $DeployOutput.properties.outputs.gatewayUrl.value
+$AppUrl = $DeployOutput.properties.outputs.appUrl.value
 Write-Host ""
 Write-Host "==== Done ====" -ForegroundColor Green
-Write-Host "Gateway URL: $GatewayUrl"
-Write-Host "Set the Meta WhatsApp webhook callback URL to: $GatewayUrl/webhook/whatsapp"
-Write-Host "Verify with: curl $GatewayUrl/health"
+Write-Host "App URL: $AppUrl"
+Write-Host "Set the Meta WhatsApp webhook callback URL to: $AppUrl/webhook/whatsapp"
+Write-Host "Verify with: curl $AppUrl/health"
 Write-Host ""
-Write-Host "Remaining manual steps — see ../README-deployment.md:"
-Write-Host "  1. Create the MinIO bucket, then lock its ingress to internal"
-Write-Host "  2. Run migrations/*.sql against Postgres"
-Write-Host "  3. Fix the REDIS_URL interpolation gap flagged in modules/containerapps.bicep"
+Write-Host "Remaining manual steps:"
+Write-Host "  1. Run migrations/*.sql against Postgres (including the new 0007_webhook_dedup.sql)"
+Write-Host "  2. Confirm the storage account container 'aisathi-assets' exists (created by Bicep already)"
+Write-Host "  3. Set a Sarvam spend cap on the Sarvam dashboard"

@@ -23,7 +23,7 @@ async def test_default_step_treated_as_welcome_when_missing():
 async def test_await_name_empty_reply_asks_again():
     result = await node_module.onboarding_node({"onboarding_step": "AWAIT_NAME", "raw_input_text": "   "})
     assert result["trace"] == ["onboarding_node:empty_name"]
-    assert "onboarding_step" not in result  # stays on the same step
+    assert "onboarding_step" not in result 
 
 
 @pytest.mark.asyncio

@@ -94,8 +94,6 @@ async def test_strips_markdown_json_fences_before_parsing(monkeypatch):
     assert result["pending_ledger_entry"]["transactions"][0]["amount_inr"] == 50
 
 
-# --- personalized confidence floor ------------------------------------------
-
 @pytest.mark.asyncio
 async def test_high_correction_rate_user_gets_a_stricter_confidence_floor(monkeypatch):
     captured = {}
@@ -106,7 +104,7 @@ async def test_high_correction_rate_user_gets_a_stricter_confidence_floor(monkey
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 
-    profile = {"ledger_correction_rate": 1.0}  # worst-case correction rate
+    profile = {"ledger_correction_rate": 1.0} 
     await node_module.ledger_extract_node({"raw_input_transcript": "১০০ টাকা বিক্রি", "user_profile": profile})
     assert captured["confidence_floor"] > node_module.BASE_CONFIDENCE_FLOOR
 
@@ -124,8 +122,6 @@ async def test_no_user_profile_uses_base_confidence_floor(monkeypatch):
     await node_module.ledger_extract_node({"raw_input_transcript": "১০০ টাকা বিক্রি"})
     assert captured["confidence_floor"] == node_module.BASE_CONFIDENCE_FLOOR
 
-
-# --- Banglish normalization path ---------------------------------------------
 
 @pytest.mark.asyncio
 async def test_code_mixed_transcript_triggers_translation_before_extraction(monkeypatch):

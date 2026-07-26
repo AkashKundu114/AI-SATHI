@@ -65,8 +65,7 @@ async def test_happy_path_phrases_rising_and_saturated_products(monkeypatch):
         return []
 
     async def _fake_completion(**kwargs):
-        assert "papad" in kwargs["prompt"]  # category values are raw ledger_entries.category strings —
-        # Bengali in real usage, but this fixture uses the English slug directly
+        assert "papad" in kwargs["prompt"]
         return {"text": "পাপড়ের চাহিদা বাড়ছে, আচারের সরবরাহ বেশি।", "model_used": "sarvam-standard", "escalated": False}
 
     monkeypatch.setattr(node_module, "block_sales_trend", _fake_trend)
@@ -98,7 +97,7 @@ async def test_model_unavailable_during_phrasing_uses_plain_fallback(monkeypatch
     monkeypatch.setattr(node_module, "route_completion", _raise)
 
     result = await node_module.market_predictor_node({"user_profile": {"block": "Balidewanganj"}})
-    assert "papad" in result["outbound_messages"][0]["body"]  # plain fallback still names the product
+    assert "papad" in result["outbound_messages"][0]["body"]  
 
 
 @pytest.mark.asyncio

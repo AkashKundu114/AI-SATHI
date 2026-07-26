@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import select  # type: ignore[import-not-found]
 
 from services.orchestrator.state import ConversationState
 from shared.db.models import User
 from shared.db.session import get_db_session
-
 
 async def load_user_profile_node(state: ConversationState) -> dict:
     whatsapp_number = state["whatsapp_number"]

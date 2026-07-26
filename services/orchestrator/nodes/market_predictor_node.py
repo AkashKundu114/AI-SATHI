@@ -38,20 +38,10 @@ async def market_predictor_node(state: ConversationState) -> dict:
             "trace": ["market_predictor_node:build_report_failed"],
         }
 
-    # Shared knowledge base (shared/knowledge/context.py) — festivals and
-    # seasonal weather notes are the same context pricing_node/price_chat_node
-    # draw on, so a rising trend near Durga Puja and the "friend" pricing
-    # chat's festival framing stay consistent with each other rather than
-    # each node inventing its own seasonal story.
     district = (profile.get("district") or block)  # district match is preferred; block is the fallback
     knowledge = get_context_for_agents(month=date.today().month, block=block, district=district)
     report["knowledge"] = knowledge
 
-    # Crop-specific seasonality (shared/knowledge/crop_calendar.py) -- a
-    # different signal from the generic SEASONAL_PATTERNS weather notes
-    # already inside `knowledge`: this is which NAMED crops are at harvest
-    # (local supply glut, typically the cheapest buying window) this month,
-    # narrowed to the user's district when we have one.
     this_month_harvest = crops_at_harvest(date.today().month)
     if district:
         district_crops = {c.slug for c in crops_for_district(district)}

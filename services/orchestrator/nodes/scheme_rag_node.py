@@ -6,7 +6,6 @@ from services.rag_service.grounding_verifier import verify_grounding
 
 FALLBACK_BENGALI = "এ বিষয়ে নিশ্চিত তথ্য নেই। পঞ্চায়েত অফিসে জিজ্ঞেস করুন।"
 
-
 async def scheme_rag_node(state: ConversationState) -> dict:
     query = (
         state.get("scheme_query")

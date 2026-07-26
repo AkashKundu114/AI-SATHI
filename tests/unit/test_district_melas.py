@@ -10,7 +10,6 @@ def test_no_district_gives_no_melas():
 
 
 def test_matching_district_and_month_surfaces_mela():
-    # Gangasagar Mela: South 24 Parganas, January
     ctx = get_context_for_agents(month=1, district="South 24 Parganas")
     slugs = {m["slug"] for m in ctx["upcoming_district_melas"]}
     assert "gangasagar_mela" in slugs
@@ -48,6 +47,5 @@ def test_every_district_mela_has_a_source_note():
 
 
 def test_block_param_still_accepted_without_error_for_backward_compat():
-    # block-only callers (no district) shouldn't crash, just get no melas.
     ctx = get_context_for_agents(month=1, block="Some Block")
     assert ctx["upcoming_district_melas"] == []

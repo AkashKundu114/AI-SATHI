@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from sqlalchemy import select
+from sqlalchemy import select  # type: ignore[import]
 
 from services.orchestrator.state import ConversationState
 from services.orchestrator.model_router import (
@@ -19,10 +19,6 @@ from shared.knowledge.dignity_guidelines import DIGNITY_RULES_BENGALI
 
 MAX_NEGOTIATION_TURNS = 4
 
-# Same domain-reasonable ceiling as ledger_confirm_node.MAX_REASONABLE_AMOUNT --
-# anything above this for a single SHG micro-business item is almost
-# certainly noise (or an attempt to break the floor comparison via a huge
-# digit string that parses to `inf`; see red-team-agents-v2.md HIGH-1).
 MAX_REASONABLE_OFFER = 500_000
 MAX_REASON_CHARS = 200
 
@@ -34,12 +30,6 @@ _AMOUNT_RE = re.compile(r"(₹\s?[০-৯0-9,]+|[০-৯0-9,]+\s?টাকা)")
 _DIGIT_RE = re.compile(r"[০-৯0-9,]+")
 _BENGALI_DIGITS = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
 
-# Reused from grounding_verifier.py's word-form-number handling: a reason
-# fragment mentioning "পঞ্চাশ" (fifty) contains no digit *characters* at
-# all, so a plain isdigit() scan misses it entirely -- this was a real gap
-# caught while re-testing this file's own fix (see
-# docs/red-team-agents-v2.md CRIT-1). Any of these words appearing in a
-# reason fragment is treated the same as a digit: discard the fragment.
 _NUMBER_WORDS = {
     "শূন্য", "এক", "দুই", "তিন", "চার", "পাঁচ", "ছয়", "সাত", "আট", "নয়",
     "দশ", "এগারো", "বারো", "তেরো", "চৌদ্দ", "পনেরো", "ষোল", "সতেরো",
@@ -48,38 +38,6 @@ _NUMBER_WORDS = {
     "একশো", "দুইশো", "তিনশো", "চারশো", "পাঁচশো", "হাজার", "লাখ",
 }
 _NUMBER_WORD_RE = re.compile("|".join(re.escape(w) for w in _NUMBER_WORDS))
-
-# NOTE ON DESIGN -- read before touching this file:
-#
-# The LLM (Sarvam-105B) is NEVER asked to write a price, in either the
-# accept or counter-offer flow. It is only ever asked for a short,
-# digit-free justification sentence, and _mentions_a_number() discards that
-# entire fragment outright if it contains so much as one digit. The actual
-# quoted number is always interpolated by code, from a value that was
-# already computed deterministically (never below the seller's floor by
-# construction -- see _compute_counter_offer). This is a structural
-# guarantee, not a pattern-matching filter.
-#
-# WHICH TACTIC TO USE is now chosen deterministically too (Pass 4), via
-# shared/knowledge/negotiation_playbook.choose_tactic -- standard, publicly
-# documented negotiation concepts (anchoring, reciprocity, value
-# justification, graceful walk-away), not invented, and not decided by the
-# LLM itself. The chosen tactic's short Bengali coaching line is folded
-# into the reason-generation PROMPT (not the system prompt) as guidance the
-# LLM should reflect in tone -- it still only ever writes a digit-free
-# sentence, same guard as before. Picking the *strategy* deterministically
-# and letting the LLM only *phrase* it is the same "deterministic core, LLM
-# for language only" split used everywhere else in this codebase
-# (pricing_node._recommend, aggregator.classify_trend, grounding_verifier).
-#
-# An earlier version of this file tried to catch a bad LLM-generated price
-# by scanning its output for ₹/টাকা patterns after the fact. That approach
-# was a blocklist and was proven to miss bare digits with no currency
-# marker, the Bengali Taka sign (৳, distinct from ₹), romanized "taka", and
-# spelled-out number words -- see docs/red-team-agents-v2.md CRIT-1 for the
-# reproduction. Do not reintroduce "let the LLM write the number, then try
-# to catch it if it's wrong" -- the number must never originate from the LLM
-# in the first place.
 
 ACCEPT_REASON_SYSTEM = (
     "তুমি একজন বন্ধুত্বপূর্ণ বিক্রয় সহায়ক। একটি লেনদেন সম্পন্ন হয়েছে।\n\n"
@@ -124,42 +82,18 @@ def _extract_amount(text: str) -> float | None:
 
 
 def _mentions_a_number(text: str) -> bool:
-    """The LLM's reason fragment must never contain a price -- see the
-    module docstring above. A legitimate justification ('ভালো মানের
-    কারণে') has no reason to contain a digit OR a spelled-out number word,
-    so this filter can be maximally aggressive with zero false-positive
-    cost: discarding an occasional harmless fragment is strictly
-    preferable to ever letting a number the model invented reach the
-    customer. Checks both digit characters (Bengali or Latin) and the
-    spelled-out Bengali number words in _NUMBER_WORDS -- a digit-only check
-    misses "পঞ্চাশ" (fifty) entirely, since it contains no digit glyphs at
-    all (see docs/red-team-agents-v2.md CRIT-1)."""
     if any(ch.isdigit() or "০" <= ch <= "৯" for ch in text):
         return True
     return bool(_NUMBER_WORD_RE.search(text))
 
 
 def _compute_counter_offer(floor: float, offer: float, turns: int) -> float:
-    """Pure, deterministic, unit-testable. Never returns below floor --
-    guaranteed by max(), not by convention. First turn holds firm at the
-    floor itself; later turns split the gap between floor and the
-    customer's latest offer, still never below floor."""
     if turns <= 1:
         return round(floor, 2)
     return round(max(floor, (floor + offer) / 2), 2)
 
 
 async def _generate_reason(system: str, prompt: str, tactic: NegotiationTactic | None = None) -> str:
-    """Shared helper for both the accept and counter flows. Returns "" (not
-    an error) on any failure or policy violation -- an empty reason just
-    means the outbound message has no extra sentence, never a missing or
-    wrong price, since the price is never sourced from here.
-
-    `tactic` (Pass 4) folds the deterministically-chosen negotiation
-    strategy's short coaching line into the PROMPT (not the system prompt,
-    to keep the system prompt stable/auditable across calls) as guidance
-    the model should reflect in tone -- it does not change what the model
-    is allowed to output (still digit-free-or-discarded)."""
     if tactic is not None:
         prompt = f"{prompt}\nকৌশলের ইঙ্গিত ({tactic.name_english}): {tactic.coaching_line_bengali}"
     try:
@@ -186,10 +120,6 @@ async def negotiation_node(state: ConversationState) -> dict:
 
 
 async def _load_floor(state: ConversationState) -> tuple[float, str] | None:
-    """Returns None if no valid, positive floor can be established -- this
-    includes the MED-1 data-integrity case (bad/missing production_cost
-    collapsing the floor to <= 0), which is treated identically to "no
-    profile set up yet" rather than silently negotiating from a ₹0 floor."""
     user_id = state.get("user_id")
     if not user_id:
         return None
@@ -233,8 +163,6 @@ async def _continue_negotiation(state: ConversationState, pending: dict, text: s
     turns = pending.get("turns", 0) + 1
 
     if text.lower() in AFFIRMATIVE and pending.get("last_counter"):
-        # Buyer accepted our previous counter-offer. Fully deterministic
-        # finalize -- no LLM call for the number, optional digit-free thank-you.
         amount = pending["last_counter"]
         tactic = choose_tactic(turn=turns, offer_vs_floor_ratio=1.0)  # accepted -> at/above floor
         reason = await _generate_reason(ACCEPT_REASON_SYSTEM, "লেনদেন সম্পন্ন হয়েছে।", tactic=tactic)
@@ -274,10 +202,6 @@ async def _evaluate_offer(floor: float, product_type: str, offer: float, turns: 
 
 
 async def _accept(offer: float, floor: float, turns: int) -> dict:
-    """Deterministic outcome: `offer >= floor` is already verified in
-    _evaluate_offer before this is ever called. The number in the outbound
-    message is always `offer`, interpolated by code -- the LLM only ever
-    supplies an optional, digit-free thank-you sentence."""
     ratio = (offer / floor) if floor else 1.0
     tactic = choose_tactic(turn=turns, offer_vs_floor_ratio=ratio)
     reason = await _generate_reason(ACCEPT_REASON_SYSTEM, "সম্মত দাম চূড়ান্ত হয়েছে।", tactic=tactic)
@@ -291,14 +215,6 @@ async def _accept(offer: float, floor: float, turns: int) -> dict:
 
 
 async def _counter(floor: float, product_type: str, offer: float, turns: int) -> dict:
-    """Offer is below floor. counter_offer is computed by
-    _compute_counter_offer -- a pure function that structurally cannot
-    return below floor. The LLM never sees this number as something it
-    should write; it only ever supplies an optional, digit-free reason,
-    which is validated by _generate_reason before use. The negotiation
-    TACTIC (anchor / value-justify / bundle / etc.) is chosen
-    deterministically by shared/knowledge/negotiation_playbook.choose_tactic
-    based on how far below floor the offer is and which turn this is."""
     counter_offer = _compute_counter_offer(floor, offer, turns)
     ratio = (offer / floor) if floor else 0.0
     tactic = choose_tactic(turn=turns, offer_vs_floor_ratio=ratio)

@@ -48,11 +48,6 @@ async def analyze_product_image(image_bytes: bytes) -> dict:
 
 
 def _price_range_for(product_info: dict) -> tuple[float, float]:
-    """Tries a specific local-product match first (shared/catalog/local_products.py
-    — e.g. 'kantha saree' -> ₹500-₹2000, tighter than the broad textile
-    bucket), falling back to the 5-bucket category default if nothing in
-    the local catalog matches. Never fabricates a range outside either
-    source — always one or the other."""
     product_type = product_info.get("product_type", "")
     local_match = find_local_product_by_slug(product_type)
     if local_match:

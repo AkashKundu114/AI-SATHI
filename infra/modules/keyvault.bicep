@@ -15,11 +15,7 @@ param sarvamApiKey string
 @secure()
 param databaseUrl string
 @secure()
-param redisPassword string
-@secure()
-param minioRootUser string
-@secure()
-param minioRootPassword string
+param azureStorageConnectionString string
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: name
@@ -66,20 +62,11 @@ resource secretDatabaseUrl 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'database-url'
   properties: { value: databaseUrl }
 }
-resource secretRedisPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+
+resource secretAzureStorageConn 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
-  name: 'redis-password'
-  properties: { value: redisPassword }
-}
-resource secretMinioRootUser 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'minio-root-user'
-  properties: { value: minioRootUser }
-}
-resource secretMinioRootPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: kv
-  name: 'minio-root-password'
-  properties: { value: minioRootPassword }
+  name: 'azure-storage-connection-string'
+  properties: { value: azureStorageConnectionString }
 }
 
 output id string = kv.id
