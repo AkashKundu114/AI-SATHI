@@ -35,7 +35,7 @@
 </head>
 <body>
   <div class="header">
-    <h1>কোথা-খাতা | মাসিক আয়-ব্যয় বিবরণী</h1>
+    <h1>AI-সাথী | মাসিক আয়-ব্যয় বিবরণী</h1>
     <p>{{ member_name }} | {{ shg_name }} | {{ district }} জেলা</p>
     <p>{{ month_bengali }} {{ year }} | তৈরি: {{ generated_date }}</p>
     {% if bangla_calendar_label %}<p class="bangla-calendar">বাংলা পঞ্জিকা: {{ bangla_calendar_label }}</p>{% endif %}
@@ -67,7 +67,7 @@
   <table><tr><th>খরচের ধরন</th><th>পরিমাণ (₹)</th></tr>
     {% for cat, amt in expense_by_category.items() %}<tr><td>{{ cat }}</td><td>₹{{ "{:,.0f}".format(amt) }}</td></tr>{% endfor %}
   </table>
-  <div style="margin:16px 16px 4px;"><div class="stamp">কোথা-খাতা দ্বারা তৈরি | {{ generated_date }}</div></div>
+  <div style="margin:16px 16px 4px;"><div class="stamp">AI-সাথী দ্বারা তৈরি | {{ generated_date }}</div></div>
 
   <div class="declaration">
     <strong>ঘোষণা:</strong> {{ declaration_text }}
@@ -81,9 +81,9 @@
   <div class="disclaimer">
     <strong>গুরুত্বপূর্ণ:</strong> এই নথিটি {{ member_name }}-এর ব্যক্তিগত লেনদেনের রেকর্ডের ভিত্তিতে তৈরি।
     ব্যাংক ঋণ বা পঞ্চায়েত সভায় সহায়ক নথি হিসেবে ব্যবহার করা যেতে পারে।
-    কোথা-খাতা কোনো আর্থিক পরামর্শ বা নিশ্চয়তা প্রদান করে না। ঋণ নেওয়ার আগে ব্যাংক বা NGO-র সাথে কথা বলুন।
+    AI-সাথী কোনো আর্থিক পরামর্শ বা নিশ্চয়তা প্রদান করে না। ঋণ নেওয়ার আগে ব্যাংক বা NGO-র সাথে কথা বলুন।
     তারিখ ও মাস সর্বদা গ্রেগরিয়ান ক্যালেন্ডার অনুযায়ী (বাংলা পঞ্জিকার তারিখ আনুমানিক, শুধু তথ্যের জন্য)।
   </div>
-  <div class="footer">kotha-khata.in | পশ্চিমবঙ্গ স্বনির্ভর গোষ্ঠী সহায়তা প্রকল্প</div>
+  <div class="footer">ai-sathi.in | পশ্চিমবঙ্গ স্বনির্ভর গোষ্ঠী সহায়তা প্রকল্প</div>
 </body>
 </html>

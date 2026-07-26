@@ -1,7 +1,7 @@
 .PHONY: help setup dev check-env test lint logs down
 
 help:
-	@echo "Kotha-Khata — Development Commands"
+	@echo "AI-SATHI — Development Commands"
 	@echo "===================================="
 	@echo "make setup      — first-time setup: copy .env, validate it, bring up DB"
 	@echo "make dev        — start the full stack (docker compose up --build)"

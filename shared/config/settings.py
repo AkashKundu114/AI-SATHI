@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     flux_base_url: str = "https://api.bfl.ml"
 
     # --- Object storage ---
-    s3_bucket: str = "kotha-khata-assets"
+    s3_bucket: str = "ai-sathi-assets"
     aws_region: str = "blr1"
     s3_endpoint_url: str = ""
 

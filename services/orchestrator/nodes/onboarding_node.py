@@ -3,7 +3,7 @@ from __future__ import annotations
 from services.orchestrator.state import ConversationState
 
 WELCOME = (
-    "🙏 কোথা-খাতায় আপনাকে স্বাগতম!\n\n"
+    "🙏 AI-সাথীতে আপনাকে স্বাগতম!\n\n"
     "আমি আপনার ব্যবসার হিসাব রাখব, পণ্যের বিজ্ঞাপন বানাব, "
     "আর বাজারের পরামর্শ দেব।\n\n"
     "শুরু করতে আপনার নাম বলুন।"
@@ -52,7 +52,7 @@ async def onboarding_node(state: ConversationState) -> dict:
                 {
                     "type": "text",
                     "body": (
-                        "কোথা-খাতা ব্যবহারের আগে:\n"
+                        "AI-সাথী ব্যবহারের আগে:\n"
                         "✅ আপনার হিসাব শুধু আপনি দেখতে পাবেন\n"
                         "✅ কোনো ব্যক্তিগত তথ্য বিক্রি হবে না\n"
                         "✅ ভয়েস মেসেজ প্রসেসিংয়ের পরপরই মুছে ফেলা হয়\n\n"
@@ -85,7 +85,7 @@ async def onboarding_node(state: ConversationState) -> dict:
             "is_new_user": False,
             "onboarding_step": "DONE",
             "outbound_messages": [
-                {"type": "text", "body": "✨ আপনার কোথা-খাতা তৈরি! আজকের বিক্রি বা খরচ ভয়েসে বলুন। 🎙️"}
+                {"type": "text", "body": "✨ আপনার AI-সাথী তৈরি! আজকের বিক্রি বা খরচ ভয়েসে বলুন। 🎙️"}
             ],
             "trace": ["onboarding_node:complete"],
         }

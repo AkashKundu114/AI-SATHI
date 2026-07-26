@@ -9,7 +9,7 @@ from shared.config.settings import get_settings
 logger = logging.getLogger("celery_entrypoint")
 
 s = get_settings()
-celery_app = Celery("kotha_khata_orchestrator", broker=s.redis_url, backend=s.redis_url)
+celery_app = Celery("ai_sathi_orchestrator", broker=s.redis_url, backend=s.redis_url)
 celery_app.conf.update(
     task_serializer="json", result_serializer="json", accept_content=["json"]
 )

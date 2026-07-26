@@ -159,14 +159,9 @@ async def _build_delivery_messages(s3, s, processed_bytes, processed_key, produc
         except Exception:
             logger.warning("poster upload failed (tier=%s), falling back to plain image delivery", poster_tier)
 
-    try:
-        processed_url = s3.generate_presigned_url(
-            "get_object", Params={"Bucket": s.s3_bucket, "Key": processed_key}, ExpiresIn=86400
-        )
-    except Exception:
-        logger.warning("presigned URL generation failed for plain-image fallback delivery")
-        return [{"type": "text", "body": "ছবিটা প্রস্তুত করা গেছে, কিন্তু পাঠাতে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।"}], None, "none"
-
+    processed_url = s3.generate_presigned_url(
+        "get_object", Params={"Bucket": s.s3_bucket, "Key": processed_key}, ExpiresIn=86400
+    )
     messages = [
         {"type": "image", "url": processed_url, "caption": captions["whatsapp_caption"]},
         {"type": "text", "body": "📣 বিজ্ঞাপনের জন্য এই সংক্ষিপ্ত বার্তাটিও ব্যবহার করতে পারেন:\n\n" + ad_caption_full},

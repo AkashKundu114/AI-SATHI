@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import select, func
+from weasyprint import HTML
 
 from shared.config.settings import get_settings
 from shared.storage.s3_client import get_s3_client
@@ -46,8 +47,6 @@ def _clean(value: str | None, max_len: int = 120) -> str:
 
 
 async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
-    from weasyprint import HTML
-
     s = get_settings()
 
     async with get_db_session() as db:
@@ -136,7 +135,7 @@ async def generate_monthly_report(user_id: str, year: int, month: int) -> dict:
         bank_linkage_label=bank_linkage_label,
         declaration_text=(
             f"এই তথ্য {(_clean(user.name) or 'সদস্য')} কর্তৃক প্রদত্ত ভয়েস/টেক্সট এন্ট্রি থেকে "
-            f"কোথা-খাতা দ্বারা স্বয়ংক্রিয়ভাবে গণনা করা হয়েছে। এটি একটি স্ব-ঘোষিত ও "
+            f"AI-সাথী দ্বারা স্বয়ংক্রিয়ভাবে গণনা করা হয়েছে। এটি একটি স্ব-ঘোষিত ও "
             f"সিস্টেম-গণনাকৃত বিবরণী, নিরীক্ষিত (audited) হিসাব নয়।"
         ),
     )

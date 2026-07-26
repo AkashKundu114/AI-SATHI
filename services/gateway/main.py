@@ -17,7 +17,7 @@ from shared.whatsapp.media import (
 
 logger = logging.getLogger("gateway")
 
-app = FastAPI(title="Kotha-Khata Gateway", version="1.0.0")
+app = FastAPI(title="AI-SATHI Gateway", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
 
 _redis: aioredis.Redis | None = None

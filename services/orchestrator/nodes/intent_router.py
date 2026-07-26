@@ -22,7 +22,7 @@ NEGOTIATION_KEYWORDS = {"দরদাম", "দর কষাকষি", "bargain
 PRICE_CHAT_KEYWORDS = {"একসাথে দাম", "দাম ঠিক করি", "discuss price", "দাম আলোচনা"}
 
 INTENT_CLASSIFY_SYSTEM = (
-    "তুমি কোথা-খাতার ইনটেন্ট ক্লাসিফায়ার।\n"
+    "তুমি AI-সাথীর ইনটেন্ট ক্লাসিফায়ার।\n"
     "ব্যবহারকারীর বার্তা পড়ে নিচের একটি ক্যাটাগরি বেছে নাও এবং শুধু JSON ফেরত দাও:\n"
     '{"feature": "LEDGER" | "LEDGER_REPORT" | "MARKET" | "PRICING" | "NEGOTIATION" | "PRICE_CHAT" | "UNKNOWN", "confidence": <0.0-1.0>}'
 )

@@ -1,42 +1,64 @@
-# Cost Model
+# Cost design — the cascade, and why
 
-Kotha-Khata keeps paid-vendor surface area small: Sarvam is the primary AI
-vendor, Flux is optional for poster generation, and all core services can run
-on a single Docker host for small deployments.
+## The cascade, per agent (OpenAI removed — see architecture.md §8)
 
-## AI Cascade
-
-| Workload | Paid tier | Free fallback |
+| Agent / call type | Paid tier | Free fallback (final — no third tier exists) |
 |---|---|---|
-| Ledger extraction and correction | Sarvam `sarvam-30b` | local Ollama `qwen2.5` |
-| Intent routing and general conversation | Sarvam `sarvam-30b` | local Ollama `qwen2.5` |
-| Pricing and market phrasing | Sarvam `sarvam-30b` | local Ollama `qwen2.5` |
-| Ads, negotiation, stronger phrasing | Sarvam `sarvam-105b` | local Ollama `qwen2.5` |
-| Product photo analysis | Sarvam Vision | local Ollama `qwen2-vl` |
-| Translation / Banglish normalization | Sarvam translate | self-hosted translate endpoint, then Ollama |
-| Speech-to-text | Saaras V3 | faster-whisper |
-| Poster generation | Flux Pro, optional | local Pillow composer |
+| Ledger extraction, corrections, market phrasing, pricing phrasing, off-topic chat | **Sarvam-30B** | Local Ollama (Qwen2.5-7B) |
+| Advertisement captions, Negotiation | **Sarvam-105B** | Local Ollama |
+| Government Schemes (if re-enabled) | **Sarvam-30B** | Local Ollama |
+| Product photo identification (Vision) | **Sarvam Vision** | Local Ollama vision (`qwen2-vl`) |
+| Speech-to-text | **Saaras V3** | Self-hosted `faster-whisper` (free, always available) |
+| Bengali↔English translation / Banglish normalization | **Sarvam** `/translate` | Your self-hosted `sarvam-translate` box, if configured → else local Ollama |
+| Poster generation | **Flux Pro** (optional, real API integration in `flux_poster_client.py`) | Pillow composite (`poster_composer.py`, free, always works — this is the tier that actually ships if `FLUX_API_KEY` is blank or Flux fails for any reason) |
 
-## Required Cost Controls
+Each cheap-vs-fallback decision is gated by the tier's own self-reported
+confidence — same mechanism regardless of which tier produced it, see
+`_parse_self_reported_confidence` in `model_router.py`.
 
-- Set a Sarvam dashboard spend cap before production traffic.
-- Keep `MAX_MESSAGES_PER_HOUR` conservative for the pilot.
-- Enable `USE_LOCAL_MODELS=true` if uptime matters during Sarvam outages.
-- Leave `FLUX_API_KEY` blank unless image-generation spend is approved.
-- Monitor model usage by `model_used` in node traces or logs.
+## Why this shape, specifically
 
-## Cost-Saving Design Choices
+- **Sarvam is now the sole paid vendor.** There is no OpenAI tier under or
+  above it anymore. This simplifies the vendor surface (one dashboard, one
+  spend cap to set) but also means **local Ollama is no longer optional in
+  practice** — with OpenAI gone, it's the only thing between a Sarvam outage
+  and total silence for every text/vision agent. Strongly recommended to
+  enable `USE_LOCAL_MODELS=true` before any real pilot traffic.
+- **Sarvam Vision for product photos, with an open verification item.**
+  Sarvam Vision has historically been positioned as document/OCR
+  intelligence rather than general product-photo understanding — confirm
+  against current Sarvam docs before trusting it as the catalog-vision
+  primary in production. The local Ollama vision fallback (`qwen2-vl`)
+  exists specifically to cover this uncertainty.
+- **A cheap heuristic gates the translation call**, not a model call. Most
+  voice notes are already clean Bengali; running every single one through
+  `/translate` "just in case" would be the single biggest avoidable cost in
+  this design. `_looks_code_mixed()` in `ledger_node.py` is a character-ratio
+  check, not an API call — translation only fires when the text actually
+  looks Banglish/code-mixed.
+- **Pricing recommendations are never LLM-generated numbers.** The price
+  floor/recommendation math in `pricing_node.py` is deterministic Python —
+  Sarvam-105B is used only to write a warm Bengali explanation of a number
+  that was already computed. Same pattern as the market trend classifier.
+- **The off-topic conversation node only fires off the happy path.** It
+  doesn't add cost to normal ledger/catalog/market/pricing usage — only to
+  messages that already failed intent classification.
 
-- Ledger, pricing, and negotiation numbers are computed in code.
-- Translation calls only run when a cheap local heuristic sees code-mixed text.
-- Catalog poster generation has a free local Pillow path.
-- Market prediction uses local database aggregation before model phrasing.
-- The off-topic conversation node only runs after normal routing fails.
+## What to actually watch
 
-## Budget Risks
-
-- A popular catalog feature can drive Flux spend quickly if enabled.
-- Sarvam outages without local fallback become availability incidents, not just
-  cost events.
-- More WhatsApp users increase media storage and egress costs.
-- Long audio messages are expensive; keep media caps enforced.
+- Sarvam pricing tiers (Starter/Pro/Business/Enterprise) and exact per-token
+  rates change — check `sarvam.ai`'s current pricing page rather than
+  trusting a number here that may be stale by the time you read this.
+- Set a spend cap on the Sarvam dashboard — the app-level per-number rate
+  limit (30 msgs/hour) is one safety net; a platform-side hard cap is a
+  second, independent one. With OpenAI removed, Sarvam is your only paid
+  exposure, so this cap matters more than it used to.
+- If you enable Flux Pro, set a separate spend cap there too — per-image
+  pricing on a poster-generation feature can scale unpredictably with
+  catalog usage.
+- If you want a rough sense of where spend concentrates: log `model_used`
+  from every `route_completion` / `route_translation` / `route_vision_completion`
+  result (already returned in the result dict, just not persisted yet) for
+  a day of real traffic, and count how often each tier actually gets used —
+  a high `ollama-local` rate means Sarvam is failing more than expected and
+  worth investigating, not just a cost win.

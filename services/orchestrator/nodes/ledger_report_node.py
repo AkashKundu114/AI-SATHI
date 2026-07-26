@@ -50,7 +50,7 @@ async def ledger_report_node(state: ConversationState) -> dict:
             {
                 "type": "document",
                 "url": result["s3_url"],
-                "filename": f"kotha-khata-{today.year}-{today.month:02d}.pdf",
+                "filename": f"ai-sathi-{today.year}-{today.month:02d}.pdf",
                 "caption": caption,
             }
         ],
