@@ -12,6 +12,10 @@ The product is not a general-purpose AI wrapper. It is a domain-locked, mission-
 
 **Primary Impact Metric:** Number of SHG women who successfully access a new government scheme or micro-finance product as a direct result of AI-SATHI, within 12 months of onboarding.
 
+> **See §10 below** for the current pilot deployment's actual scale (100 users), which
+> is intentionally much smaller than the 12-month targets in §4.2 — this PRD's targets
+> remain the product vision; §10 is the honest current-state addendum.
+
 ---
 
 ## 2. Problem Statement
@@ -93,6 +97,11 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 | G5 | Average session duration | < 3 minutes (voice-first, fast) |
 | G6 | Bengali STT accuracy on rural dialects | ≥ 92% word error rate |
 
+> These remain the 12-month product targets. **The current deployment (§10) is a
+> 100-user pilot** — none of the infrastructure decisions in that section should be
+> read as "this is how we'd build it at 50,000 users"; see §10.5 for the explicit
+> scale-up triggers.
+
 ---
 
 ## 5. Feature Specifications
@@ -144,6 +153,10 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 - Eligibility dialogue completes in ≤ 5 voice exchanges
 - Scheme document freshness: ≤ 7 days from official source update
 
+> **Not part of current pilot routing** — see `docs/architecture.md` §9/§10 and the
+> repo README's scope note. Code-complete but deliberately not wired into the live
+> intent router for this 100-user pilot.
+
 ---
 
 ### Feature 3: Instant WhatsApp Catalog Creator
@@ -185,6 +198,9 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 - Response includes actionable organic/home remedy in 100% of cases
 - Disclaimer present: 100% of responses
 
+> **Not built in the current codebase** — remains product vision (see repo README's
+> feature table).
+
 ---
 
 ### Feature 5: Automated Subsidy & Loan Matchmaker
@@ -202,6 +218,10 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 **Acceptance Criteria:**
 - Zero false positive eligibility notifications (no notifying ineligible groups)
 - Application summary PDF accepted as supporting document by at least 3 partner banks (validated during pilot)
+
+> **Not built in the current codebase** — remains product vision. Proactive
+> WhatsApp-initiated messages (rather than user-initiated replies) also have Meta
+> template-message billing/approval implications not yet scoped for the pilot.
 
 ---
 
@@ -221,6 +241,8 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 **Acceptance Criteria:**
 - Course completion rate (all lessons in a track): ≥ 40% (industry benchmark for async training: 15%; this target reflects community accountability)
 - Quiz answer grading accuracy: ≥ 85%
+
+> **Not built in the current codebase** — remains product vision.
 
 ---
 
@@ -242,6 +264,8 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 - Entity extraction from meeting audio: ≥ 90% accuracy on structured test set
 - Meeting minutes format matches West Bengal SHG grading format: validated by 3 block-level officers
 
+> **Not built in the current codebase** — remains product vision.
+
 ---
 
 ### Feature 8: Localized Market Price & Demand Predictor
@@ -260,6 +284,11 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 - Demand prediction directional accuracy: ≥ 70% (product demand goes up when predicted, vs. goes down or flat)
 - Zero individual user data exposed to other users (verified by privacy audit)
 
+> **Built, with the k-anonymity floor described here enforced at query level** — see
+> `services/market_service/aggregator.py`'s `MIN_SAMPLE_SIZE = 5`. Note FR8.4's
+> anonymity guarantee is weaker in absolute terms at only 100 pilot users than at PRD
+> scale — see §10.4 below.
+
 ---
 
 ## 6. Non-Functional Requirements
@@ -276,6 +305,10 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 | **Dialect Support** | Standard Bengali + Rarhi, Barendri, Haor, Sylheti-influenced dialects |
 | **Security** | End-to-end WhatsApp encryption preserved; no PII in logs; VAPT audit before launch |
 | **Compliance** | WhatsApp Business Policy; RBI guidelines on financial advice disclaimers; NOT a registered financial advisor — disclaimers mandatory |
+
+> **§10.2 below** restates this table's Availability/Scalability rows against what the
+> current pilot infrastructure actually provisions — read both together, not the NFR
+> table alone, when evaluating whether the live deployment "meets spec."
 
 ---
 
@@ -324,3 +357,86 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 | Vulnerable Users | Bot does not ask for Aadhaar numbers, bank account numbers, or OTPs at any point — ever |
 | Guardrails | Domain-locked: bot politely redirects off-topic queries back to its function |
 | Abuse Prevention | Rate limiting; no bulk message capability for end users; WhatsApp WABA policy compliance |
+
+---
+
+## 10. Addendum — Current pilot deployment tier (Azure, 100 users)
+
+This section is appended, matching the convention already used in
+`docs/architecture.md` (its own §7, §10, §11) — it records the actual,
+current deployment scale rather than editing the 12-month targets above.
+**Read this alongside §4.2, §6, and the per-feature notes above, not as a
+replacement for them.**
+
+### 10.1 Actual current scale vs. PRD targets
+
+| Metric | PRD 12-month target (§4.2) | Current pilot |
+|---|---|---|
+| Active users | 50,000 | 100 |
+| Messages/day | derived from NFR §6 (500,000/day peak) | ~2,000/day (100 users × ~20 msgs/day) |
+| Concurrent sessions | 50,000 | a handful at any given moment |
+
+This is roughly a 500x gap on user count and a 250x gap on daily message
+volume. Every infrastructure decision described in
+`docs/architecture.md` §11 (single Container App, Postgres-based
+dedup/rate-limiting instead of Redis, native Blob Storage instead of
+MinIO, no local-model fallback provisioned) is sized for the **right-hand
+column**, not the left. None of it should be read as a claim about how
+the product would be built at 50,000 users — see §10.5 below for the
+explicit signals to watch for outgrowing this tier.
+
+### 10.2 NFR table (§6) at pilot scale
+
+- **Availability:** the pilot runs a single Container App replica
+  (`docs/architecture.md` §11.6) — a deploy or crash causes a short
+  availability gap, which does not meet the 99.5%-uptime target in §6 in
+  the strict sense of "no single point of failure." Acceptable risk at 100
+  users; not acceptable at anything resembling the PRD's target scale.
+- **Scalability:** the pilot's infrastructure has not been load-tested
+  anywhere near 50,000 concurrent sessions or 500,000 msgs/day, and isn't
+  intended to be at this stage — it is intentionally right-sized for
+  ~2,000 msgs/day, not a scaled-down proof that the architecture holds at
+  PRD scale.
+- **Latency:** the pilot's actual per-turn latency profile is expected to
+  meet §6's targets comfortably at this traffic volume (turns run
+  in-process rather than through a queue, removing rather than adding
+  latency at low concurrency) — but this hasn't been independently
+  benchmarked against the PRD's stated targets and shouldn't be assumed
+  without measurement.
+
+### 10.3 Feature scope actually live in the pilot
+
+Per the per-feature notes added above and the repo README's own feature
+table: Voice-Ledger (Feature 1), Catalog Creator (Feature 3, partial —
+pricing/negotiation/friend-pricing-chat additions beyond the original
+spec), Pricing Recommendation, Negotiation, Market Predictor (Feature 8,
+partial), and general conversation fallback are live. Government Scheme
+RAG (Feature 2) is code-complete but not routed. Agri-Doc (Feature 4),
+Subsidy Matchmaker (Feature 5), Micro-Skill Training (Feature 6), and
+Meeting Minutes (Feature 7) are not built.
+
+### 10.4 Privacy/anonymity note specific to small-N pilots
+
+Feature 8's k-anonymity floor (`MIN_SAMPLE_SIZE = 5` distinct sellers
+before any market trend is surfaced) is enforced identically at pilot
+scale, but is worth flagging explicitly here: at 100 total users spread
+across multiple blocks/districts and product categories, a "5 distinct
+sellers" bucket is a much larger fraction of the total user base than it
+would be at 50,000 users. The enforcement mechanism is unchanged and
+correct; the **practical anonymity margin it provides is thinner** at this
+population size, purely as a function of small-N statistics, not a code
+gap. Worth another look before increasing pilot size much beyond 100 in a
+single geographic cluster.
+
+### 10.5 Signals to watch for outgrowing this tier
+
+Move off the Azure low-cost shape (`docs/architecture.md` §11) when **any**
+of the following show up in real metrics, not before:
+- Container App CPU/memory consistently pegged, or Postgres CPU climbing
+  from dedup/rate-limit writes specifically (§11.1's stated trade-off).
+- Turn latency visibly degrading under concurrent load (§11.2's stated
+  trade-off — no queue backpressure).
+- User growth approaching low thousands, where the single-replica
+  availability trade-off (§11.6) becomes harder to justify.
+- A genuine need for local-model fallback uptime guarantees beyond what
+  Sarvam alone can promise (§11.4).

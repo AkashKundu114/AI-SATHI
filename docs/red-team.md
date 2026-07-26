@@ -70,6 +70,13 @@ reachable again:
 celery_app.conf.update(task_serializer="json", result_serializer="json", accept_content=["json"])
 ```
 
+> **Status as of Pass #3, §11 below: superseded, not merely fixed.** Redis and Ollama
+> are no longer part of the Azure deployment at all — see
+> `docs/architecture.md` §11. This finding's *specific* exploit paths (unauthenticated
+> `redis-cli`, unauthenticated Ollama) can't recur because there's nothing at those
+> ports to attack. Postgres remains, and Pass #3 re-examines its exposure on its own
+> terms rather than assuming the original fix still fully applies — see §11.1.
+
 ---
 
 ## CRIT-2 — PDF generation is an SSRF + injection primitive (Jinja2 autoescape is OFF)
@@ -136,6 +143,12 @@ And drop the Google Fonts `@import` from the template in favor of a locally bund
 Noto Sans Bengali font file, so the renderer has *zero* legitimate reason to make
 outbound requests — removing the SSRF surface rather than just filtering it.
 
+**Status:** still fixed and unaffected by the Azure/Pass #3 changes below — the fix
+(`autoescape=True`, `_clean()`, `base_url=None`) is all in `generator.py`'s own logic
+and doesn't touch storage or the task queue. §11.3 below only changes *where the
+finished PDF bytes get uploaded to* (Azure Blob instead of S3/MinIO), not how they're
+rendered.
+
 ---
 
 ## HIGH-1 — Webhook signature verification uses the wrong secret (silent, not a crash)
@@ -163,6 +176,9 @@ wa_app_secret: str  # separate from wa_webhook_verify_token — get from Meta Ap
 # services/gateway/main.py
 expected = "sha256=" + hmac.new(s.wa_app_secret.encode(), body, hashlib.sha256).hexdigest()
 ```
+
+**Status:** still fixed, unaffected by Pass #3 — `main.py`'s HMAC check is identical in
+the Azure version (see the current `services/gateway/main.py`).
 
 ---
 
@@ -216,6 +232,12 @@ And in `main.py`, wrap the call so an oversized note gets a friendly Bengali rep
 instead of an unhandled exception bubbling out of a background task (which currently
 just vanishes silently — a debuggability problem on top of the security one).
 
+**Status, updated for Pass #3:** the fix itself (size cap in `media.py`) still stands
+unchanged. But the **blast radius changed** now that Celery's separate worker process
+is gone (`docs/architecture.md` §11.2) — a GPU/CPU-hogging oversized audio note now
+directly competes with the same container that's also trying to ack the next incoming
+webhook, rather than only starving an isolated worker. See new finding §11.2 below.
+
 ---
 
 ## HIGH-3 — Grounding verifier can be defeated by spelling the number out in words
@@ -268,6 +290,9 @@ Add this as its own test case (`test_word_form_hallucination_is_caught`) alongsi
 existing nine — treat it as a first-class regression, not a nice-to-have, given how
 central this check is to the product's actual safety claim.
 
+**Status:** still fixed, unaffected by Pass #3 — this lives entirely inside
+`grounding_verifier.py`'s text logic and has nothing to do with storage/queue/infra.
+
 ---
 
 ## HIGH-4 — Ledger amounts are stored with no bounds checking, and the save path has no exception handling
@@ -296,69 +321,17 @@ in this function** — it propagates up through the LangGraph node, into
 `graph.ainvoke(...)`. The Celery task then retries (per
 `@celery_app.task(..., max_retries=2)`) against the same bad input, fails identically
 twice more, and the user gets silence — no error message, no confirmation, nothing —
-while burning three LLM calls per bad input. A single voice note like "মাইনাস পাঁচ হাজার
-টাকা বিক্রি" (or the LLM simply mis-extracting a huge number from noisy audio, which
-*will* happen at pilot scale) is enough to trigger this, no malicious intent required —
-which makes it more concerning, not less: it'll happen organically during the pilot.
+while burning three LLM calls per bad input.
 
-**Fix:**
-```python
-# ledger_confirm_node.py
-MAX_REASONABLE_AMOUNT = 500_000  # ₹5 lakh per single voice-note transaction; PRD's
-                                  # domain is micro-business SHG sales — anything above
-                                  # this is almost certainly a mis-extraction, not a
-                                  # real transaction, and should be caught before storage
+**Fix:** `_validate_amount()` bounds check + try/except around `commit()` + wrapping
+`graph.ainvoke(...)` similarly at the call site — see the original write-up above for
+the exact code (unchanged in substance).
 
-def _validate_amount(amt: float) -> float | None:
-    if amt != amt or amt in (float("inf"), float("-inf")):   # NaN/inf check
-        return None
-    if amt < 0 or amt > MAX_REASONABLE_AMOUNT:
-        return None
-    return round(amt, 2)
-
-async def _save(state, pending):
-    user_id = state.get("user_id")
-    if not user_id:
-        return _reset_with_message(..., trace="ledger_confirm_node:save_failed_no_user_id")
-
-    validated_txs = []
-    for tx in pending.get("transactions", []):
-        amt = _validate_amount(float(tx.get("amount_inr", 0) or 0))
-        if amt is None:
-            return _reset_with_message(
-                "টাকার পরিমাণটা ঠিক বুঝতে পারলাম না। আবার বলুন, যেমন: '৩০০ টাকা পাপড় বিক্রি করেছি'",
-                trace="ledger_confirm_node:amount_out_of_range",
-            )
-        validated_txs.append((tx, amt))
-
-    try:
-        async with get_db_session() as db:
-            for tx, amt in validated_txs:
-                db.add(LedgerEntry(user_id=user_id, entry_type=tx.get("type", "INCOME"),
-                                    amount_inr=amt, category=tx.get("item_bengali"), ...))
-            await db.commit()
-    except Exception:
-        return _reset_with_message(
-            "হিসাব রাখতে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।",
-            trace="ledger_confirm_node:db_commit_failed",
-        )
-    ...
-```
-And wrap `graph.ainvoke(...)` in `celery_entrypoint.py` similarly, so *any* unhandled
-node exception degrades to a Bengali error message instead of silent task death:
-```python
-async def _process_turn_async(whatsapp_number, turn_input):
-    try:
-        graph = await get_compiled_graph()
-        result = await graph.ainvoke({"whatsapp_number": whatsapp_number, **turn_input},
-                                      config={"configurable": {"thread_id": whatsapp_number}})
-    except Exception:
-        await send_text(whatsapp_number, "দুঃখিত, একটু সমস্যা হয়েছে। আবার চেষ্টা করুন।")
-        raise   # still lets Celery's retry/alerting logic see it
-    for msg in result.get("outbound_messages", []):
-        if msg["type"] == "text":
-            await send_text(whatsapp_number, msg["body"])
-```
+**Status, updated for Pass #3:** the fix itself is unchanged and still applied. The
+call site that needs the outer try/except is now
+`services/gateway/turn_processor.py::process_turn_and_dispatch` (the direct successor
+to `celery_entrypoint.py::_process_turn_async` — same wrapping, no Celery retry
+mechanism to rely on anymore, see new finding §11.2).
 
 ---
 
@@ -366,48 +339,181 @@ async def _process_turn_async(whatsapp_number, turn_input):
 
 None of the Dockerfiles (`gateway`, `pdf_service`, `orchestrator`, `voice_gateway`,
 `stt`) declare a `USER` directive, so every container runs its process as
-`root` by default. Combined with CRIT-2's SSRF-capable PDF renderer, a compromise of
-the WeasyPrint/Pillow/rembg dependency chain (all real, actively-updated libraries with
-occasional CVEs) gets root inside that container for free, instead of a low-privilege
-account an attacker would then need a second bug to escalate from.
+`root` by default.
 
-**Fix (apply to each Dockerfile):**
+**Fix:**
 ```dockerfile
 RUN useradd -m -u 1000 appuser
 USER appuser
 ```
-placed after `pip install` (so package installs still run with build privileges) and
-before `CMD`.
+
+**Status:** still fixed, and the merged single Dockerfile in the Azure deployment
+(`services/gateway/Dockerfile`) keeps the same `useradd`/`USER appuser` pattern —
+verify this each time that Dockerfile is edited, since it's now the *only* image and
+there's no second Dockerfile to catch a regression by comparison.
 
 ---
 
 ## MED-2 — WhatsApp Flow `interactive_payload` is trusted JSON with no schema
 
-**File:** `shared/whatsapp/parser.py`, consumed via `main.py`'s
-`turn_input["raw_input_text"] = json.dumps(msg.interactive_payload or {})`
+**File:** `shared/whatsapp/parser.py`
 
 The Flow's `nfm_reply.response_json` is parsed and forwarded into the graph as raw text
-with no schema validation (`INTERNSHIP_GUIDE.md` Option C already flags this as
-unbuilt). Once a node actually consumes it, an attacker who can trigger a Flow submit
-with unexpected fields (extra keys, wrong types, oversized strings) gets whatever that
-node does with unvalidated input — currently low-impact since nothing consumes it yet,
-but worth a pydantic schema *before* Option C ships, not after.
+with no schema validation. Low-impact since nothing consumed it at the time of the
+original audit; worth a pydantic schema before it's relied on more heavily.
+
+**Status:** unchanged, still open, unaffected by Pass #3.
 
 ---
 
-## Summary checklist
+## Summary checklist (Pass #2)
 
-| # | Finding | Fixed here |
+| # | Finding | Fixed here | Status after Pass #3 |
+|---|---|---|---|
+| CRIT-1 | Redis/Postgres/Ollama unauthenticated + host-exposed | ✅ compose port binding + requirepass + Celery serializer pin | ⏫ Superseded — Redis/Ollama removed entirely, see §11.1 |
+| CRIT-2 | PDF SSRF + HTML injection via unescaped ledger fields | ✅ autoescape + strip-tags + WeasyPrint network disabled | ✅ Unaffected |
+| HIGH-1 | Webhook HMAC uses wrong secret | ✅ new `wa_app_secret` setting | ✅ Unaffected |
+| HIGH-2 | No size cap on voice notes before GPU processing | ✅ size check in `media.py` | ⚠️ Blast radius changed, see §11.2 |
+| HIGH-3 | Grounding verifier misses word-form hallucinated amounts | ✅ `_WORD_AMOUNT_RE` extension + new test | ✅ Unaffected |
+| HIGH-4 | Unbounded ledger amounts, uncaught DB exceptions | ✅ `_validate_amount` + try/except + graph-level catch | ⚠️ Call site moved, see §11.2 |
+| MED-1 | Containers run as root | ✅ non-root `USER` in Dockerfiles | ✅ Unaffected (now one Dockerfile, not five) |
+| MED-2 | Unvalidated Flow JSON payload | ⚠️ flagged, not fixed | ⚠️ Still open |
+
+Everything above is additive to `security.md` (H1–H12), not a replacement.
+
+---
+
+# AI-SATHI — Red-Team Pass #3
+## Attacking the Azure low-cost architecture (Redis/Celery/MinIO removed)
+
+**Method, same as Pass #2:** treat every new trust boundary introduced by
+`docs/architecture.md` §11 as hostile — Postgres now doing Redis's old jobs, one
+container doing two processes' old jobs, Azure Blob Storage doing MinIO's old job.
+Findings below are scoped to *what changed*; everything in Pass #2 not called out as
+superseded above still applies unchanged.
+
+## 11.1 MED — Postgres dedup/rate-limit tables have no retention cleanup, and are a new write-amplification surface
+
+**Files:** `migrations/0007_webhook_dedup.sql`, `shared/db/dedup.py`
+
+`webhook_dedup` gets one row per inbound message forever — there is no scheduled
+`DELETE FROM webhook_dedup WHERE created_at < NOW() - INTERVAL '7 days'` anywhere in
+this codebase (the old Redis key had a 24h TTL for free; a Postgres table does not
+expire rows on its own). At 2,000 msgs/day this grows by ~2,000 rows/day indefinitely —
+not an outage risk at pilot scale over a period of months, but it **is** an
+unattended-growth footgun: nothing currently stops this table (or `rate_limit_counters`,
+which additionally never removes old hour-buckets per phone number) from becoming a
+genuine bloat/vacuum problem a year into a pilot nobody revisits.
+
+More pressing at pilot scale: **every single inbound webhook message now costs at
+least one, usually two, synchronous Postgres round-trips** (`mark_seen_or_skip` +
+`check_and_increment_rate_limit`) on the *same* connection pool the LangGraph
+checkpointer and every domain read/write already share. This is explicitly flagged as
+an acceptable trade-off in `docs/architecture.md` §11.1 at 2,000 msgs/day — this
+red-team finding is not "this is broken," it's "this is the thing to watch first if
+traffic grows," matching that section's own stated trigger.
+
+**Fix:**
+```sql
+-- Run as a scheduled job (Azure Container Apps has no built-in cron; use an
+-- Azure Function on a Timer trigger, or a `pg_cron` extension if your Flexible
+-- Server tier supports it) — NOT wired up anywhere in this codebase yet.
+DELETE FROM webhook_dedup WHERE created_at < NOW() - INTERVAL '7 days';
+DELETE FROM rate_limit_counters WHERE hour_bucket < (EXTRACT(EPOCH FROM NOW()) / 3600 - 168)::BIGINT;
+```
+Flagged, not fixed — add this before treating the pilot as "set and forget" for more
+than a few months.
+
+## 11.2 HIGH — No Celery isolation means a slow/heavy turn now shares CPU/memory with the webhook ack itself
+
+**Files:** `services/gateway/main.py`, `services/gateway/turn_processor.py`
+
+`docs/architecture.md` §11.2 documents this trade-off explicitly, but it's worth
+red-teaming as an actual DoS vector, not just a latency inconvenience: `FastAPI
+BackgroundTasks` run in the same event loop / process as the webhook handler. A
+message that triggers heavy synchronous work — WeasyPrint PDF rendering (CRIT-2's
+renderer, still CPU-bound even with the SSRF fix applied), `faster-whisper` CPU
+transcription (HIGH-2's un-isolated blast radius, now sharper), or a slow Sarvam call
+that falls all the way through to `ModelUnavailableError` after exhausting retries —
+now directly competes for the same worker process handling `POST /webhook/whatsapp`
+for every other concurrent user.
+
+At this pilot's actual traffic (a few messages/minute), this is very unlikely to be
+noticeable. It becomes a real concern under either (a) an unexpectedly bursty day
+(a group event where many SHG members message at once) or (b) a deliberate attacker
+who has your webhook URL and app secret's public verification requirements figured
+out well enough to send crafted, expensive-to-process payloads repeatedly (e.g.
+maximum-size images/audio right at HIGH-2's size cap, back to back). Because there is
+exactly **one replica** (`maxReplicas: 1`, `docs/architecture.md` §11.6), there is no
+horizontal headroom to absorb this — a sustained burst degrades the webhook's own
+ack latency, which risks Meta's own retry/backoff behavior kicking in and compounding
+load.
+
+**Fix, in order of effort:**
+1. Cheapest: raise `maxReplicas` to 2 in `infra/modules/containerapps.bicep` — gives
+   Container Apps' own CPU-based autoscale a second instance to shed load to, at
+   roughly double the compute line-item cost. Still no queue, but removes the
+   single-point-of-saturation risk.
+2. Correct, if traffic genuinely grows: reintroduce a real queue (Azure Service Bus +
+   a second, independently-scaled Container App consuming it) exactly as
+   `docs/architecture.md` §11.2 already recommends as the first thing to do if this
+   tier is outgrown — do not silently keep raising `maxReplicas` indefinitely as a
+   substitute for that.
+
+## 11.3 MED — Azure Blob Storage account key is parsed directly out of the connection string for SAS generation
+
+**File:** `shared/storage/blob_client.py`
+
+```python
+def _account_key_from_connection_string(conn_str: str) -> str:
+    parts = dict(p.split("=", 1) for p in conn_str.split(";") if "=" in p)
+    return parts["AccountKey"]
+```
+
+`generate_read_url()` needs the raw account key to sign a SAS token, and the only
+place that key currently lives is inside `AZURE_STORAGE_CONNECTION_STRING` — the same
+secret used for every other Blob operation. This is not a vulnerability by itself (the
+key is already in Key Vault, injected as a Container App secret the same way every
+other credential in this deployment is), but it does mean **the single connection
+string secret has full read/write/delete access to the entire storage account**, not
+a narrower "generate read-only SAS tokens only" scope. Compare this to the AWS
+presigned-URL pattern the old `s3_client.py` used, which *could* (though this codebase
+didn't do so) be issued from an IAM credential scoped down to exactly that one
+operation.
+
+**Fix, if this deployment's threat model warrants it:** use a **User Delegation SAS**
+(requires Azure AD auth + an RBAC role scoped to the storage account, rather than the
+account key) instead of an account-key SAS, or split credentials — a
+write-capable identity for `upload_bytes`/`download_bytes` used only by the app's own
+backend code, and a separate, narrowly-scoped key used only for SAS generation. Not
+done in this pass; flagged because "one secret, full account access" is a bigger blast
+radius than the old MinIO setup's equivalent credential, which was already scoped to
+a single bucket by convention (not by IAM, but at least not shared with a whole Azure
+subscription's storage account).
+
+## 11.4 LOW — Single Container App replica means no security-patch rolling deploy
+
+**File:** `infra/modules/containerapps.bicep`
+
+With `minReplicas: 1, maxReplicas: 1`, any deploy (including a security patch to a
+dependency) briefly takes the app offline rather than rolling traffic to a second
+healthy replica first. Not a vulnerability in the traditional sense, but worth naming
+in a security document: **the cheapest configuration and the most-available
+configuration are in direct tension here**, and this deployment has explicitly chosen
+cost over availability at this pilot scale (`docs/architecture.md` §11.6 already
+states this trade-off; this finding just makes the security-patching angle of it
+explicit rather than leaving it implied).
+
+## Summary checklist (Pass #3)
+
+| # | Finding | Status |
 |---|---|---|
-| CRIT-1 | Redis/Postgres/Ollama unauthenticated + host-exposed | ✅ compose port binding + requirepass + Celery serializer pin |
-| CRIT-2 | PDF SSRF + HTML injection via unescaped ledger fields | ✅ autoescape + strip-tags + WeasyPrint network disabled |
-| HIGH-1 | Webhook HMAC uses wrong secret (verify token ≠ app secret) | ✅ new `wa_app_secret` setting |
-| HIGH-2 | No size cap on voice notes before GPU processing | ✅ `Content-Length`/post-download check in `media.py` |
-| HIGH-3 | Grounding verifier misses word-form hallucinated amounts | ✅ `_WORD_AMOUNT_RE` extension + new test |
-| HIGH-4 | Unbounded ledger amounts, uncaught DB exceptions | ✅ `_validate_amount` + try/except + graph-level catch |
-| MED-1 | Containers run as root | ✅ non-root `USER` in Dockerfiles |
-| MED-2 | Unvalidated Flow JSON payload | ⚠️ flagged for Option C implementation, not yet consumed anywhere so no fix applied |
+| 11.1 | Postgres dedup/rate-limit tables: no retention cleanup, added write load | ⚠️ Flagged, not fixed — matches architecture.md §11.1's stated trade-off |
+| 11.2 | No queue isolation — a heavy turn can degrade webhook ack latency under load | ⚠️ Flagged, mitigation options given, not applied |
+| 11.3 | Blob SAS generation uses full-access account key, not a scoped credential | ⚠️ Flagged, not fixed |
+| 11.4 | Single replica means no rolling security-patch deploy | ⚠️ Named trade-off, not a code fix |
 
-Everything above is additive to `security.md` (H1–H12), not a replacement —
-that audit's P0 items (idempotency, rate limiting, audio-retention claims, media size
-caps on the *old* `stt` path) are still correct and still need to stay applied.
+None of Pass #3's findings are CRIT — they're the honest cost of the savings described
+in `docs/architecture.md` §11, not new holes introduced by carelessness. Re-run this
+pass (or a lighter version of it) before any decision to grow past the 100-user pilot
+tier, per `docs/product.md` §10.5's stated scale-up triggers.

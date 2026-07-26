@@ -26,6 +26,12 @@ this exact reason — see `docs/archive/research/agent-frameworks.md`).
 Celery is **kept** only as the execution substrate (so a slow node doesn't block the
 20s WhatsApp webhook ack) — LangGraph runs *inside* a Celery task, not instead of it.
 
+> **Superseded, see §11 below.** As of the Azure low-cost pass, Celery (and the Redis
+> broker it needed) has been removed entirely — LangGraph now runs inside a FastAPI
+> `BackgroundTask` in the same process as the webhook. The reasoning above about
+> *why LangGraph replaced the keyword router* still holds; only the execution
+> substrate underneath it changed.
+
 ## 2. Voice stack: Bhashini-primary → Sarvam-primary, free local fallback
 
 **v1 problem:** TRD specified Bhashini as the primary STT with self-hosted Whisper as
@@ -40,6 +46,10 @@ latency-sensitive production traffic.
 2. **Self-hosted fine-tuned `faster-whisper`** — free, zero marginal cost, the only
    fallback tier (see §8 below — this is no longer an optional nicety, it's the sole
    safety net now that OpenAI has been removed entirely).
+
+`faster-whisper` runs CPU-only inside the same container as everything else (see §11)
+— there is no separate GPU box provisioned for it or for anything else in this
+deployment.
 
 ## 3. Structured input: voice-only → WhatsApp Flows for forms
 
@@ -73,6 +83,12 @@ agent tier:
 - **Free fallback** (both tiers): self-hosted Qwen2.5-7B via Ollama. As of §8 below,
   this is the *only* fallback — see that section for what changed and why it matters
   more now than when it was originally "just" a cost-saving option.
+
+> **Update, §11 below:** at the Azure pilot's actual traffic (100 users, ~2,000
+> msgs/day), the Ollama fallback tier is deliberately **not provisioned at all** — a
+> GPU box costs more per month than the entire Sarvam bill at this volume. Every
+> agent still has a typed `ModelUnavailableError` path; it just resolves to a
+> friendly Bengali retry message instead of a local-model fallback for now.
 
 ## 5. RAG hallucination prevention: a hardcoded flag → a real two-pass verifier
 
@@ -110,6 +126,11 @@ cost-sensitive AGPL posture) wraps every LangGraph node and LLM call. This is wh
 makes a multi-step, multi-provider agent debuggable by an intern in week one instead
 of guessed-at from logs.
 
+> **Update, §11 below:** in the Azure low-cost deployment, self-hosted Langfuse is
+> **not provisioned** (it would be a fifth always-on service at this scale). Tracing
+> is optional and off by default (`LANGFUSE_PUBLIC_KEY` blank); Container Apps'
+> built-in Log Analytics integration is the only observability layer actually running.
+
 ---
 
 ## What stayed the same (and why)
@@ -117,7 +138,8 @@ of guessed-at from logs.
 - **pgvector co-located with Postgres** instead of a separate vector DB — still the
   right call at this document-corpus scale (≤1M chunks).
 - **WeasyPrint for PDF** — no change needed, it already does the job well.
-- **FastAPI + Redis + Postgres core** — still the right stack for this team size.
+- **FastAPI + Postgres core** — still the right stack for this team size. (Redis is
+  no longer part of this list — see §11.)
 - **Domain-locked, hallucination-guarded scheme RAG as the trust anchor** — the
   core product insight from the PRD is unchanged, only how it's enforced.
 
@@ -177,21 +199,18 @@ an implicit "this will basically always eventually work" third tier under
 Sarvam-and-local. That tier is gone. If `SARVAM_API_KEY` is unset/failing
 **and** `USE_LOCAL_MODELS=false`, every text/vision agent now raises
 `ModelUnavailableError` immediately — there is no other paid vendor to fall
-through to. In practice this means `USE_LOCAL_MODELS=true` plus a reachable
-Ollama box is no longer a nice-to-have cost optimization; it is the
-production uptime story. See `docs/COST.md` for the updated cascade table
-and `scripts/check_env.py`, which now warns explicitly if neither tier is
-configured.
+through to. See §11 below for the current, deliberate decision to run the
+Azure pilot in exactly this "no local fallback provisioned" mode, and
+`docs/COST.md` for the cascade table.
 
 **Open verification item:** Sarvam Vision's product-photo capability has not
 been confirmed against current Sarvam API docs — Sarvam Vision has
 historically been positioned as document/OCR intelligence, not general
 product-photo understanding. `catalog_node.py`/`vision_router.py` now route
 through `route_vision_completion`, which tries Sarvam Vision first and the
-local Ollama vision model (`qwen2-vl`) second. **Verify Sarvam Vision's
-actual scope before relying on it as the production primary** — if it turns
-out to be document-scoped only, set `USE_LOCAL_MODELS=true` and treat the
-Ollama tier as the real primary for this agent specifically.
+local Ollama vision model (`qwen2-vl`) second (when that tier is
+provisioned at all — see §11). **Verify Sarvam Vision's actual scope before
+relying on it as the production primary.**
 
 **New agent added:** Pricing Recommendation (`services/orchestrator/nodes/pricing_node.py`).
 Deterministic core (cost + margin + market-floor math against the seller's
@@ -200,9 +219,6 @@ own `production_cost`/`minimum_price`/`preferred_margin`, stored in the new
 warm Bengali, never to generate the price itself, matching the same
 "deterministic core, LLM for language only" pattern already used in
 `grounding_verifier.py` and `aggregator.py::classify_trend`.
-
-**Update — now built:** the Negotiation agent and a real Flux Pro poster
-tier are both implemented. See §9 below.
 
 ## 9. Negotiation agent (built) + Flux Pro poster tier (built)
 
@@ -235,9 +251,7 @@ holds firm at the floor price and ends the negotiation.
 > `shared/knowledge/negotiation_playbook.py` — the *choice* of negotiation
 > tactic (anchor / reciprocity / justify-value / graceful walk-away) is now
 > made deterministically from the offer-to-floor ratio and turn number,
-> with the LLM only phrasing whichever tactic was chosen. Previously the
-> LLM picked its own framing implicitly; now the strategy itself is
-> code-selected too.
+> with the LLM only phrasing whichever tactic was chosen.
 
 ### 9.2 Flux Pro poster tier — `services/vision_service/flux_poster_client.py`
 
@@ -282,47 +296,26 @@ returns statewide festivals (`FESTIVALS`), district-specific melas
 (`SEASONAL_PATTERNS`) — all as plain data, never phrased Bengali prose, so
 every calling node still routes final phrasing through `model_router.py`
 per the existing "deterministic core, LLM for language only" split.
-`shared/knowledge/life_events.py`... — actually life-cycle occasions live
-in the same `context.py` module (`LIFE_EVENTS`, `life_events_by_community`)
-rather than a separate file, since they're read by the same callers via the
-same import.
 
 **What's real vs. approximate, stated once here and per-entry in the file
 itself:** every festival/occasion/mela entry carries a `source_note` citing
-where it came from — Wikipedia articles for Hindu and Muslim Bengali
-wedding rites, a purohit reference site for pujas, named tourism/heritage
-sources for the district melas, and an explicit, weaker flag on the three
-Christian Bengali entries (one non-academic blog source plus two
-general-Christian-practice entries with no Bengal-specific citation). Dates
-are typical-month approximations, not a real per-year lunar/panchang
-calendar — `sources_todo` at the bottom of the file lists exactly what a
-live calendar API integration would need to replace this with.
+where it came from. Dates are typical-month approximations, not a real
+per-year lunar/panchang calendar — `sources_todo` at the bottom of the file
+lists exactly what a live calendar API integration would need to replace
+this with.
 
 **What this is not:** a "100+ verified entries" catalog. As of Pass 6 it's
-~14 life-cycle occasions, 11 statewide festivals, 5 district melas. Getting
-further needs either a real scraping pipeline against a licensed
-panchang/government data source, or continued manual research passes —
-both are real follow-up work, not something to fabricate to hit a number.
+~14 life-cycle occasions, 11 statewide festivals, 5 district melas.
 
 ### 10.2 Dignity guidelines — one shared tone contract, and an explicit no on caste/rashi
 
 `shared/knowledge/dignity_guidelines.py` centralizes the tone rules now
-prepended to every Bengali-facing conversational system prompt (ledger
-confirmation phrasing, off-topic conversation, catalog captions, market
-advice, pricing explanations, negotiation reasoning, the friend-style
-pricing chat). Rule of thumb encoded there: never imply the user doesn't
-understand something, take blame for misunderstanding onto the assistant
-rather than the user, address the user as an equal-status entrepreneur
-rather than a charity recipient.
-
-The same module documents, explicitly, why **caste, gotro/gon, and rashi
-(zodiac) are not tracked anywhere in this codebase** despite being
-requested: none of the product's actual features need them, and adding
-caste specifically as a stored/personalized attribute would create a
-discrimination-enabling asset for a population that can't easily contest
-its misuse — the wrong trade for a financial-inclusion tool. This is a
-product-safety decision, not an oversight, and is recorded here so it
-doesn't get silently re-proposed later without the reasoning attached.
+prepended to every Bengali-facing conversational system prompt. The same
+module documents, explicitly, why **caste, gotro/gon, and rashi (zodiac)
+are not tracked anywhere in this codebase** despite being requested: none
+of the product's actual features need them, and adding caste specifically
+as a stored/personalized attribute would create a discrimination-enabling
+asset for a population that can't easily contest its misuse.
 
 ### 10.3 WhatsApp Flow verification before permanent ledger writes
 
@@ -332,72 +325,185 @@ of the exact typo/mishearing risk the confirmation step exists to catch in
 the first place.
 
 **Decision:** `services/gateway/whatsapp_flows/ledger_confirm_flow.json`
-adds a tap-to-confirm form (✅ ঠিক আছে / ✏️ সংশোধন করব / ❌ বাতিল করুন) as a
-second front door onto the *same* save logic.
-`services/orchestrator/nodes/ledger_confirm_flow_node.py` consumes the tap;
-`shared/whatsapp/sender.py:send_flow()` actually sends it; `graph.py`
-routes an interactive reply to the Flow-aware node specifically when its
-payload contains `confirmation_choice`, falling back to the original
-text-based node otherwise. Critically: **there is still exactly one code
-path that ever writes to `ledger_entries`** — both confirmation routes call
-the same `_save()` in `ledger_confirm_node.py`. The Flow is a second lock
-pick, not a second lock. Configuration is optional
-(`WA_LEDGER_CONFIRM_FLOW_ID`); unset, behavior is unchanged from before
-this pass.
-
-**Open verification item**, same honesty category as Sarvam Vision/Flux Pro
-above: `send_flow()`'s payload shape (a static "flow_action: navigate"
-message, no data-exchange endpoint) is a best-effort implementation of
-Meta's documented format, not verified against a live WABA send in this
-codebase's development so far.
+adds a tap-to-confirm form as a second front door onto the *same* save
+logic. Critically: **there is still exactly one code path that ever writes
+to `ledger_entries`** — both confirmation routes call the same `_save()` in
+`ledger_confirm_node.py`.
 
 ### 10.4 Friend-style pricing chat, negotiation tactics, and cross-agent verification
 
 **`services/orchestrator/nodes/price_chat_node.py`** — a SELLER-facing
-conversational pricing negotiation (distinct from `negotiation_node.py`,
-which handles a *customer's* counter-offers after a poster is already
-live), run before `catalog_node.py` composes a poster. Follows the same
-guard-rail shape as the existing Negotiation agent: the floor is the same
-`pricing_node._recommend()` floor, the LLM never states a number, and the
-node hard-stops at the floor rather than silently capping a seller's
-request below it — instead explaining why, using the seller's own
-previously-stated `production_cost`/`minimum_price`.
-
-**`shared/knowledge/negotiation_playbook.py`** — standard, publicly
-documented negotiation concepts (anchoring, BATNA, reciprocity, silence,
-bundling, value-justification, graceful walk-away) as strategy labels with
-short Bengali coaching lines, never as a source of numbers. `choose_tactic`
-deterministically picks a strategy from the turn number and offer/floor
-ratio; `negotiation_node.py` folds the chosen tactic's coaching line into
-the LLM's reason-generation *prompt* (not its system prompt) as of Pass 4.
-
-**`services/orchestrator/nodes/cross_verify.py`** — the person's request
-that "one agent's output should be verified... by another agent" applied
-concretely and boundedly: an independent second model call
-(`verify_dignity`) checks a fully-composed outbound message against the
-dignity rules, combined with a fully deterministic numeric-integrity check
-(`check_numeric_integrity`) that every ₹ figure in the draft matches a
-code-computed value the caller actually supplied. `price_chat_node.py`
-runs every LLM-touched outbound message through this before sending, and
-falls back to a deterministic, code-only line if verification fails or is
-itself unavailable — never sends an unverified draft. This is explicitly
-*not* a full N-agent debate/consensus architecture (that's a real,
-separate scope decision involving latency and cost tradeoffs); it is one
-bounded, honest second-opinion pass on the highest-stakes outbound
-messages.
+conversational pricing negotiation, run before `catalog_node.py` composes a
+poster. **`shared/knowledge/negotiation_playbook.py`** — standard,
+publicly documented negotiation concepts as strategy labels, never as a
+source of numbers. **`services/orchestrator/nodes/cross_verify.py`** — an
+independent second model call checks a fully-composed outbound message
+against dignity rules, combined with a deterministic numeric-integrity
+check that every ₹ figure matches a code-computed value the caller
+actually supplied.
 
 ### 10.5 What's still open after Pass 6
 
-- Live testing against a real WABA (Flow sends, Flow receives, the whole
-  turn) has not happened in this codebase's development so far — see the
-  open-verification flags in §10.3 above and in `send_flow()`'s own
-  docstring.
+- Live testing against a real WABA (Flow sends, Flow receives) has not
+  happened in this codebase's development so far.
 - `negotiation_node.py`'s `is_repeat_customer` signal is hardcoded to
-  `False` — there's no data source tracking customer identity across
-  negotiations, and building one is a real privacy/consent scope decision,
-  not a code change to make silently.
-- Christian Bengali life-cycle sourcing (§10.1) is genuinely weaker than
-  the Hindu/Muslim entries and should be strengthened before being treated
-  as equally reliable.
-- No live festival/panchang calendar API is wired in — `month_hint`
-  approximations only.
+  `False`.
+- Christian Bengali life-cycle sourcing is genuinely weaker than the
+  Hindu/Muslim entries.
+- No live festival/panchang calendar API is wired in.
+
+---
+
+## 11. Addendum — Azure low-cost deployment: Redis, Celery, and MinIO removed
+
+This section is appended per the same convention as §7 and §10 above — it
+does not rewrite the v1→v2 reasoning in §1–9, it records what changed when
+this codebase moved from a "design for scale" deployment shape to an
+actual, specific pilot: **100 SHG members, ~20 messages/day each, so
+roughly 2,000 messages/day total (a few messages per minute at peak)**.
+That's a three-to-four-orders-of-magnitude gap from the PRD's 12-month
+targets (`docs/product.md` §4.2: 50,000 monthly active users). At the
+pilot's actual scale, several architectural decisions that were correct
+"designing for where this goes" became straightforwardly wasteful money at
+"where this actually is right now" — this addendum is that correction,
+scoped explicitly to the pilot, not a claim that these decisions are right
+forever.
+
+### 11.1 Redis removed — dedup and rate-limiting moved to Postgres
+
+**What Redis did in this codebase:** webhook message-ID dedup (`SETNX`),
+per-number hourly rate-limit counters (`INCR`/`EXPIRE`), and the Celery
+broker/result backend (§11.2 below).
+
+**Why it's gone:** at ~2,000 msgs/day, dedup and rate-limiting are a
+handful of small, indexed writes per message — Postgres, which this
+codebase already requires for everything else, absorbs that load without
+noticing. Running a second managed/self-hosted service whose only jobs are
+"a `SET NX`" and "an `INCR`" is not proportionate to this traffic volume.
+
+**What replaced it:** `migrations/0007_webhook_dedup.sql` adds
+`webhook_dedup` (PRIMARY KEY on `message_id`, so a retry hits a constraint
+violation instead of a fresh insert — the same idempotency guarantee Redis
+`nx=True` gave, just enforced by the database's own uniqueness constraint
+instead of an atomic Redis command) and `rate_limit_counters` (one row per
+phone number per hour bucket, upserted with
+`ON CONFLICT ... DO UPDATE SET message_count = message_count + 1`).
+`shared/db/dedup.py` exposes the same two operations
+(`mark_seen_or_skip`, `check_and_increment_rate_limit`) that
+`services/gateway/main.py` calls in place of the old `redis.set(...,nx=True)`
+/ `redis.incr(...)` pair.
+
+**Known trade-off, stated plainly:** a Postgres `INSERT` is slower than a
+Redis `SETNX` (milliseconds vs. microseconds) and adds one more round-trip
+to the same database that also holds the LangGraph checkpointer and every
+domain table. At 2,000 msgs/day this is invisible. It would **not** be the
+right call at, say, 50,000 msgs/day — revisit Redis (or a cheaper
+alternative like Azure Cache for Redis's Basic tier) if/when Postgres CPU
+becomes the actual bottleneck, evidenced by metrics, not assumed in
+advance.
+
+### 11.2 Celery removed — turns run in-process via FastAPI BackgroundTasks
+
+**What Celery did:** ran the LangGraph turn invocation in a separate
+worker process/container, so a slow node (an LLM call, WeasyPrint
+rendering) couldn't block the webhook's own request handling or its
+20-second ack window to Meta.
+
+**Why it's gone:** that isolation is only valuable when concurrent turns
+are common enough that one slow turn could genuinely starve the webhook
+handler. At a few messages per minute, the webhook process has ample spare
+capacity to also run the turn itself — there's no realistic concurrency
+level at this traffic volume where a second process actually buys you
+anything, and it was costing a second always-on Container App plus the
+Redis broker in §11.1.
+
+**What replaced it:** `services/gateway/turn_processor.py` —
+`process_turn_and_dispatch()` is a direct port of the old
+`celery_entrypoint.py::_process_turn_async` (same LangGraph invocation,
+same outbound-message delivery loop for text/document/image/flow
+messages), called via `background_tasks.add_task(...)` from
+`services/gateway/main.py` immediately after the webhook acks Meta — so
+the ack itself is still fast and independent of how long the turn actually
+takes to process.
+
+**Known trade-off, stated plainly:** there is no queue anymore, so there
+is no backpressure or retry semantics beyond what FastAPI's
+`BackgroundTasks` gives you (fire-and-forget within the same process; if
+the container crashes mid-turn, that turn is simply lost — no Celery
+retry). At this pilot's scale, a lost turn is rare and recoverable by the
+user resending; it would not be acceptable at higher stakes or higher
+volume. **The first thing to reintroduce if traffic grows** is a real
+queue — Azure Service Bus (cheap, serverless-billed) plus a second,
+KEDA-autoscaled Container App consuming it — not a return to
+Celery+Redis specifically, since Service Bus removes the Redis dependency
+Celery would otherwise reintroduce.
+
+### 11.3 MinIO removed — native Azure Blob Storage
+
+**What MinIO did:** gave the codebase an S3-compatible API
+(`boto3`-shaped: `put_object`/`get_object`/`generate_presigned_url`) for
+raw/processed catalog images and generated PDF reports, self-hosted inside
+a container app backed by an Azure Files share.
+
+**Why it's gone:** MinIO is a real service that needs to run 24/7 and be
+backed by persistent storage — on Azure, that means paying for both a
+standing container app *and* an Azure Files share, purely to re-implement
+an API that Azure Storage already natively provides. There was no reason
+to run a virtual S3 on top of Azure when the platform's own Blob Storage
+does the same three operations with **zero standing compute cost**
+(billed per GB stored and per operation, not per hour running).
+
+**What replaced it:** `shared/storage/blob_client.py`, using the
+`azure-storage-blob` SDK directly. `upload_bytes()` / `download_bytes()` /
+`generate_read_url()` are drop-in replacements for
+`put_object()` / `get_object()['Body'].read()` / `generate_presigned_url()`
+respectively; `generate_read_url()` builds a time-limited SAS URL the same
+way the old code built a presigned S3 URL, and is what gets handed to
+WhatsApp's `image`/`document` message types as the `link` for Meta's
+servers to fetch. `catalog_node.py` and `pdf_service/generator.py` are the
+only two call sites that needed updating.
+
+**Known trade-off:** none of real consequence at this scale — this is a
+straightforwardly cheaper, equally capable replacement. The one thing to
+watch: Azure Blob Storage's SAS-token generation requires the storage
+account key directly (parsed out of the connection string in
+`blob_client.py`'s `_account_key_from_connection_string`), rather than a
+scoped IAM role the way an AWS presigned URL could be issued from a
+narrower-privilege credential. Treat the Storage Account connection string
+with the same care as any other secret in Key Vault — it is not scoped
+down further than "full access to this one account."
+
+### 11.4 Local Ollama fallback: not provisioned, by explicit decision
+
+Per §8's original vendor-consolidation reasoning, every agent already has
+a typed `ModelUnavailableError` path if Sarvam fails and no local fallback
+is configured. At this pilot's scale, that's the deliberate, chosen
+behavior: a GPU box to run Ollama costs meaningfully more per month than
+this project's entire expected Sarvam bill at ~2,000 msgs/day. `USE_LOCAL_MODELS`
+stays `false` in the Azure deployment; a Sarvam outage degrades to a
+friendly Bengali "try again shortly" message for every text/voice/vision
+agent, not to a local model. Revisit only if uptime requirements harden
+past what a single external vendor can promise.
+
+### 11.5 What this buys, in one sentence
+
+Going from (gateway + worker + Redis + MinIO, ~4 always-on
+services) to (one container app + Postgres + Blob Storage, ~2
+paid line items) cuts the pilot's fixed monthly infrastructure cost by
+roughly half, with the trade-offs listed in each subsection above
+explicitly accepted at this specific traffic volume — not silently
+assumed to hold at any larger scale.
+
+### 11.6 What's still open after this pass
+
+- Single Container App replica (`minReplicas: maxReplicas: 1`) means no
+  high availability — a deploy or crash causes a short gap in webhook
+  availability. Acceptable at 100 users; revisit before a larger rollout.
+- No queue-based backpressure (§11.2) — a burst well above this pilot's
+  expected volume could make the webhook process feel sluggish, since
+  turn-processing now shares its CPU/memory budget.
+- `tests/unit/test_catalog_node.py`'s fake-S3 fixtures still mock the old
+  `boto3`-shaped client and need updating to mock `blob_client` instead
+  before that test file is green again.
+- See `README-azure-deploy.md` at the repo root for the concrete cost
+  breakdown and deploy steps that go with this section.
