@@ -21,6 +21,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set lowercase image owner
+        run: echo "OWNER_LC=${OWNER,,}" >> "$GITHUB_ENV"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -28,8 +36,8 @@ jobs:
           file: services/gateway/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ai-sathi:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/ai-sathi:latest
+            ghcr.io/${{ env.OWNER_LC }}/ai-sathi:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/ai-sathi:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -43,7 +51,7 @@ jobs:
             set -euo pipefail
             cd /opt/ai-sathi
 
-            sed -i "s|image: ghcr.io/.*/ai-sathi:.*|image: ghcr.io/${{ github.repository_owner }}/ai-sathi:${{ github.sha }}|" docker-compose.prod.yml
+            sed -i "s|image: ghcr.io/.*/ai-sathi:.*|image: ghcr.io/${{ env.OWNER_LC }}/ai-sathi:${{ github.sha }}|" docker-compose.prod.yml
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
