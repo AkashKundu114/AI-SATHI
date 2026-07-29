@@ -49,6 +49,14 @@ class Settings(BaseSettings):
 
     bengali_font_path: str = "assets/fonts/NotoSansBengali-Bold.ttf"
 
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    metrics_alert_email: str = ""
+    admin_api_token: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

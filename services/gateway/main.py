@@ -31,6 +31,27 @@ async def health():
     return {"status": "ok"}
 
 
+@app.post("/admin/metrics/email")
+async def trigger_metrics_email(request: Request, background_tasks: BackgroundTasks):
+    s = get_settings()
+    token = request.headers.get("X-Admin-Token", "")
+    if not s.admin_api_token or not hmac.compare_digest(token, s.admin_api_token):
+        log_security_event("unauthorized_admin_metrics_access", source_ip=request.client.host if request.client else None)
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    recipient = request.query_params.get("to")
+    background_tasks.add_task(_collect_and_send_metrics, recipient)
+    return {"status": "accepted", "message": "Metrics report email queued"}
+
+
+async def _collect_and_send_metrics(recipient: str | None = None):
+    from shared.observability.metrics import collect_system_metrics
+    from shared.observability.email_reporter import send_metrics_email
+
+    metrics = await collect_system_metrics()
+    await send_metrics_email(metrics, recipient_email=recipient)
+
+
 @app.get("/webhook/whatsapp")
 async def verify_webhook(request: Request):
     s = get_settings()
