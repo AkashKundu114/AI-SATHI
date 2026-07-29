@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-_E164_PHONE_RE = re.compile(r"^\+?[1-9]\d{7,14}$")
+_E164_PHONE_RE = re.compile(r"^\+?[1-9]\d{7,15}$")
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
