@@ -20,6 +20,7 @@ from services.orchestrator.nodes.negotiation_node import negotiation_node
 from services.orchestrator.nodes.price_chat_node import price_chat_node
 from services.orchestrator.nodes.upgrade_node import upgrade_node
 from services.orchestrator.nodes.conversation_node import general_conversation_node
+from services.orchestrator.nodes.verification_node import verification_node
 from shared.config.settings import get_settings
 
 
@@ -37,6 +38,10 @@ def _route_after_profile_load(state: ConversationState) -> str:
         state.get("onboarding_step") and state["onboarding_step"] != "DONE"
     ):
         return "onboarding"
+
+    v_status = state.get("user_profile", {}).get("verification_status", "unverified")
+    if v_status != "verified":
+        return "verification"
 
     if state.get("awaiting_confirmation"):
         payload = _interactive_payload(state)
@@ -87,6 +92,7 @@ def build_graph() -> StateGraph:
     graph.add_node("load_user_profile", load_user_profile_node)
     graph.add_node("onboarding", onboarding_node)
     graph.add_node("classify_intent", classify_intent)
+    graph.add_node("verification", verification_node)
     graph.add_node("ledger", ledger_extract_node)
     graph.add_node("ledger_confirm", ledger_confirm_node)
     graph.add_node("ledger_confirm_flow", ledger_confirm_flow_node)
@@ -105,6 +111,7 @@ def build_graph() -> StateGraph:
         _route_after_profile_load,
         {
             "onboarding": "onboarding",
+            "verification": "verification",
             "ledger_confirm": "ledger_confirm",
             "ledger_confirm_flow": "ledger_confirm_flow",
             "negotiation": "negotiation",
@@ -134,6 +141,7 @@ def build_graph() -> StateGraph:
     )
 
     graph.add_edge("onboarding", END)
+    graph.add_edge("verification", END)
     graph.add_edge("upgrade", END)
     graph.add_edge("ledger", END)
     graph.add_edge("ledger_confirm", END)

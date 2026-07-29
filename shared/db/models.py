@@ -60,6 +60,25 @@ class User(Base):
     ledger_correction_rate: Mapped[float] = mapped_column(Numeric(4, 3), default=0.0)
     sessions_count: Mapped[int] = mapped_column(Integer, default=0)
     trust_stage: Mapped[str] = mapped_column(String(15), default="new")
+    
+    verification_status: Mapped[str] = mapped_column(String(20), default="unverified")
+    user_type: Mapped[str | None] = mapped_column(String(30))
+
+
+class UserVerification(Base):
+    __tablename__ = "user_verifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    doc_id_number: Mapped[str | None] = mapped_column(String(100))
+    doc_image_s3_key: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewer_notes: Mapped[str | None] = mapped_column(Text)
 
 
 class LedgerEntry(Base):

@@ -38,6 +38,8 @@ class UserProfile(TypedDict, total=False):
     block: str
     district: str
     plan_tier: str
+    verification_status: str
+    user_type: str | None
 
 
 class ConversationState(TypedDict, total=False):
@@ -49,6 +51,10 @@ class ConversationState(TypedDict, total=False):
     onboarding_step: str | None
     onboarding_name: str | None
     onboarding_block: str | None
+    
+    verification_step: str | None
+    verification_doc_type: str | None
+    verification_doc_number: str | None
 
     active_feature: Feature
     last_message_type: Literal["text", "audio", "image", "interactive"]

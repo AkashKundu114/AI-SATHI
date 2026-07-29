@@ -45,6 +45,8 @@ async def load_user_profile_node(state: ConversationState) -> dict:
         "block": user.block,
         "district": user.district,
         "plan_tier": plan_tier,
+        "verification_status": getattr(user, "verification_status", "unverified") or "unverified",
+        "user_type": getattr(user, "user_type", None),
     }
     return {
         "is_new_user": False,
