@@ -3,17 +3,23 @@ from __future__ import annotations
 import logging
 
 from services.voice_gateway.providers import saaras_provider, whisper_local_provider
+from shared.metering.usage_tracker import check_and_increment_api_usage
 
 logger = logging.getLogger("voice_gateway")
 
 CONFIDENCE_FLOOR = 0.60
 
 
-async def transcribe(audio_bytes: bytes, language: str = "bn") -> dict:
-    providers = [
-        ("saaras-v3", saaras_provider.transcribe),
-        ("whisper-local", whisper_local_provider.transcribe),
-    ]
+async def transcribe(audio_bytes: bytes, language: str = "bn", user_id: str | None = None) -> dict:
+    allowed, _, _ = await check_and_increment_api_usage(user_id, "sarvam_stt")
+
+    providers = []
+    if allowed:
+        providers.append(("saaras-v3", saaras_provider.transcribe))
+    else:
+        logger.info("User %s exceeded sarvam_stt monthly limit, bypassing saaras-v3 to local whisper", user_id)
+
+    providers.append(("whisper-local", whisper_local_provider.transcribe))
 
     last_error: Exception | None = None
     for name, fn in providers:

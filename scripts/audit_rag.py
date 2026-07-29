@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """
 RAG audit script — generates a review sheet of random Q&As, run against the
 live scheme_rag pipeline + grounding_verifier, for human review.
@@ -33,7 +34,7 @@ import random
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # noqa: E402
 
 QUESTION_TEMPLATES = [
     "{scheme} থেকে মাসে কত টাকা পাওয়া যায়?",

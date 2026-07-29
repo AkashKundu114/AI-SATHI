@@ -18,8 +18,8 @@ services:
   gateway:
     image: ghcr.io/AkashKundu114/ai-sathi:latest
     env_file: .env
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy

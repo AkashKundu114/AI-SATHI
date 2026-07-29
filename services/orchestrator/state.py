@@ -4,7 +4,7 @@ from typing import Literal, TypedDict, Annotated
 from operator import add
 
 Feature = Literal[
-    "LEDGER", "LEDGER_REPORT", "CATALOG", "MARKET", "PRICING", "NEGOTIATION", "ONBOARDING", "IDLE"
+    "LEDGER", "LEDGER_REPORT", "CATALOG", "MARKET", "PRICING", "NEGOTIATION", "ONBOARDING", "UPGRADE", "IDLE"
 ]
 
 
@@ -37,6 +37,7 @@ class UserProfile(TypedDict, total=False):
     trust_stage: str
     block: str
     district: str
+    plan_tier: str
 
 
 class ConversationState(TypedDict, total=False):

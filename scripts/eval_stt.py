@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """
 STT eval script — loads an eval-set JSONL, runs it through a configured
 STT provider, and reports Word Error Rate (WER) against reference
@@ -32,7 +33,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # noqa: E402
 
 
 def _word_error_rate(reference: str, hypothesis: str) -> dict:

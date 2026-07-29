@@ -91,6 +91,7 @@ async def generate_poster(
     price_min: float,
     price_max: float,
     shg_name: str = "",
+    user_id: str | None = None,
 ) -> tuple[bytes | None, str]:
     s = get_settings()
 
@@ -103,6 +104,7 @@ async def generate_poster(
                 price_min=price_min,
                 price_max=price_max,
                 shg_name=shg_name,
+                user_id=user_id,
             )
             return image_bytes, "flux-pro"
         except FluxUnavailableError as exc:

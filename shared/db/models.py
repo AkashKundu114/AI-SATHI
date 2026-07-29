@@ -136,3 +136,26 @@ class SellerProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
+
+
+class ApiUsageMonthly(Base):
+    __tablename__ = "api_usage_monthly"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(30), primary_key=True)
+    month_bucket: Mapped[str] = mapped_column(String(7), primary_key=True)
+    call_count: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class UserPlan(Base):
+    __tablename__ = "user_plans"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    plan_tier: Mapped[str] = mapped_column(String(20), default="free")
+    plan_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    upgraded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    payment_ref: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+

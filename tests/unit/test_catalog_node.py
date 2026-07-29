@@ -1,7 +1,7 @@
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from contextlib import asynccontextmanager
 
 import pytest
 
@@ -127,7 +127,7 @@ async def test_processed_image_upload_failure_returns_friendly_message(monkeypat
 
 @pytest.mark.asyncio
 async def test_happy_path_without_poster_falls_back_to_plain_image_and_caption(monkeypatch):
-    s3 = _default_mocks(monkeypatch, poster=(None, "none"))
+    _default_mocks(monkeypatch, poster=(None, "none"))
     result = await node_module.catalog_node({"raw_image_s3_key": "catalog-raw/x.jpg"})
 
     assert result["catalog_result"]["product_type"] == "papad"

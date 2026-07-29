@@ -15,6 +15,7 @@ except ImportError:
 from shared.config.settings import get_settings
 from services.translation_service import sarvam_client
 from services.translation_service.sarvam_client import SarvamUnavailableError
+from shared.metering.usage_tracker import check_and_increment_api_usage, UsageLimitExceededError
 
 logger = logging.getLogger("model_router")
 
@@ -101,11 +102,16 @@ async def route_completion(
     criticality: TaskCriticality,
     tier: AgentTier = AgentTier.STANDARD,
     confidence_floor: float = 0.80,
+    user_id: str | None = None,
 ) -> dict:
     s = get_settings()
     model_name = s.sarvam_advanced_model if tier == AgentTier.ADVANCED else s.sarvam_chat_model
 
     if s.sarvam_api_key and not _breaker_is_open():
+        allowed, current, limit = await check_and_increment_api_usage(user_id, "sarvam_chat")
+        if not allowed:
+            raise UsageLimitExceededError("sarvam_chat", limit, current)
+
         try:
             text = await sarvam_client.chat_completion(system, prompt, model=model_name)
             _record_sarvam_success()
@@ -134,10 +140,16 @@ async def route_completion(
     )
 
 
-async def route_translation(text: str, target_lang: str, source_lang: str = "auto") -> dict:
+async def route_translation(
+    text: str, target_lang: str, source_lang: str = "auto", user_id: str | None = None
+) -> dict:
     s = get_settings()
 
     if s.sarvam_api_key:
+        allowed, current, limit = await check_and_increment_api_usage(user_id, "sarvam_translate")
+        if not allowed:
+            raise UsageLimitExceededError("sarvam_translate", limit, current)
+
         try:
             translated = await sarvam_client.translate(text, target_lang=target_lang, source_lang=source_lang)
             if translated:
@@ -190,10 +202,16 @@ async def _call_local_vision(prompt: str, image_bytes: bytes) -> tuple[str, bool
         return "", False
 
 
-async def route_vision_completion(*, prompt: str, image_bytes: bytes, criticality: TaskCriticality) -> dict:
+async def route_vision_completion(
+    *, prompt: str, image_bytes: bytes, criticality: TaskCriticality, user_id: str | None = None
+) -> dict:
     s = get_settings()
 
     if s.sarvam_api_key:
+        allowed, current, limit = await check_and_increment_api_usage(user_id, "sarvam_vision")
+        if not allowed:
+            raise UsageLimitExceededError("sarvam_vision", limit, current)
+
         try:
             text = await sarvam_client.vision_completion(prompt, image_bytes)
             if text:
@@ -209,3 +227,4 @@ async def route_vision_completion(*, prompt: str, image_bytes: bytes, criticalit
     raise ModelUnavailableError(
         "no vision tier available (Sarvam Vision failed/unconfigured, local vision not enabled)"
     )
+

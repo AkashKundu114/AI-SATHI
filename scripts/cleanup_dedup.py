@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """
 Retention cleanup for webhook_dedup / rate_limit_counters.
 
@@ -27,7 +28,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # noqa: E402
 
 DEFAULT_DEDUP_RETENTION_DAYS = 7
 DEFAULT_RATE_LIMIT_RETENTION_HOURS = 168  # 7 days of hourly buckets, matching the dedup default

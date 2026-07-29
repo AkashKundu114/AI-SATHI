@@ -14,6 +14,7 @@ from services.market_service.aggregator import block_sales_trend, classify_trend
 from shared.catalog.local_products import category_keywords, find_local_product_by_slug
 from shared.db.dedup import check_and_increment_daily_feature_cap
 from shared.config.feature_caps import MAX_CATALOG_CREATIONS_PER_DAY
+from shared.metering.usage_tracker import UsageLimitExceededError
 
 logger = logging.getLogger("catalog_node")
 
@@ -22,6 +23,11 @@ MAX_IMAGE_BYTES = 5 * 1024 * 1024
 CAP_REACHED_MSG = "আজকের জন্য ছবি প্রসেসিংয়ের সীমা শেষ হয়ে গেছে। কাল আবার চেষ্টা করুন।"
 
 _CATEGORY_KEYWORDS = category_keywords()
+
+LIMIT_EXCEEDED_MSG = (
+    "এই মাসের জন্য আপনার ফ্রি ব্যবহারের সীমা শেষ হয়ে গেছে।\n"
+    "অতিরিক্ত সুবিধা পেতে প্রিমিয়াম প্ল্যানে আপগ্রেড করুন! 'আপগ্রেড' লিখে মেসেজ পাঠান।"
+)
 
 
 async def catalog_node(state: ConversationState) -> dict:
@@ -65,8 +71,13 @@ async def catalog_node(state: ConversationState) -> dict:
         }
 
     try:
-        product_info = await analyze_product_image(raw_bytes)
-        captions, (price_min, price_max) = await generate_captions(product_info, shg_name=_shg_name(state))
+        product_info = await analyze_product_image(raw_bytes, user_id=user_id)
+        captions, (price_min, price_max) = await generate_captions(product_info, shg_name=_shg_name(state), user_id=user_id)
+    except UsageLimitExceededError:
+        return {
+            "outbound_messages": [{"type": "text", "body": LIMIT_EXCEEDED_MSG}],
+            "trace": ["catalog_node:usage_limit_exceeded"],
+        }
     except ModelUnavailableError:
         return {
             "outbound_messages": [{"type": "text", "body": "এই মুহূর্তে ছবি প্রসেস করতে সমস্যা হচ্ছে। একটু পরে আবার পাঠান।"}],
@@ -122,6 +133,7 @@ async def _build_delivery_messages(processed_bytes, processed_key, product_info,
         price_min=price_min,
         price_max=price_max,
         shg_name=_shg_name(state),
+        user_id=state.get("user_id"),
     )
 
     if poster_bytes:

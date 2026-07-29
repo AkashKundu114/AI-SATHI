@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import io
@@ -7,7 +8,6 @@ from PIL import Image
 from services.vision_service.rembg_processor import (
     process_product_image,
     _quality_check,
-    MAX_PIXELS,
     MIN_RESOLUTION_PX,
 )
 

@@ -15,17 +15,20 @@ MARKET_KEYWORDS = {"ki banabo", "কি বানাবো", "bazar", "বাজ
 PRICING_KEYWORDS = {"দাম", "কত দামে", "price", "koto dam", "দাম কত"}
 NEGOTIATION_KEYWORDS = {"দরদাম", "দর কষাকষি", "bargain", "negotiate", "কমান", "কম দামে বলেছে"}
 PRICE_CHAT_KEYWORDS = {"একসাথে দাম", "দাম ঠিক করি", "discuss price", "দাম আলোচনা"}
+UPGRADE_KEYWORDS = {"upgrade", "আপগ্রেড", "premium", "প্রিমিয়াম", "plan", "প্ল্যান", "buy", "কিনতে চাই"}
 
 INTENT_CLASSIFY_SYSTEM = (
     "তুমি AI-সাথীর ইনটেন্ট ক্লাসিফায়ার।\n"
     "ব্যবহারকারীর বার্তা পড়ে নিচের একটি ক্যাটাগরি বেছে নাও এবং শুধু JSON ফেরত দাও:\n"
-    '{"feature": "LEDGER" | "LEDGER_REPORT" | "MARKET" | "PRICING" | "NEGOTIATION" | "PRICE_CHAT" | "UNKNOWN", "confidence": <0.0-1.0>}'
+    '{"feature": "LEDGER" | "LEDGER_REPORT" | "MARKET" | "PRICING" | "NEGOTIATION" | "PRICE_CHAT" | "UPGRADE" | "UNKNOWN", "confidence": <0.0-1.0>}'
 )
 
 
 async def classify_intent(state: ConversationState) -> dict:
     text = (state.get("raw_input_text") or state.get("raw_input_transcript") or "").lower()
 
+    if any(k in text for k in UPGRADE_KEYWORDS):
+        return {"active_feature": "UPGRADE", "trace": ["intent_router:keyword:UPGRADE"]}
     if any(k in text for k in REPORT_KEYWORDS):
         return {"active_feature": "LEDGER_REPORT", "trace": ["intent_router:keyword:LEDGER_REPORT"]}
     if any(k in text for k in FINANCIAL_KEYWORDS):

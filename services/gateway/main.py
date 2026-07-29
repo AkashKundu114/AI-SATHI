@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException, Response
-from fastapi.middleware.cors import CORSMiddleware
-import hmac, hashlib, json, uuid, logging
+import hmac
+import hashlib
+import json
+import uuid
+import logging
 
 from shared.config.settings import get_settings
 from shared.storage.blob_client import upload_bytes
@@ -13,11 +16,12 @@ from shared.whatsapp.media import (
     download_whatsapp_image,
     MediaTooLargeError,
 )
+from shared.security.audit_log import log_security_event
+from shared.security.input_sanitizer import sanitize_text_input, validate_phone_number
 
 logger = logging.getLogger("gateway")
 
-app = FastAPI(title="AI-SATHI Gateway", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"])
+app = FastAPI(title="AI-SATHI Gateway", version="1.0.0", docs_url=None, redoc_url=None)
 
 MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024 
 
@@ -36,11 +40,13 @@ async def verify_webhook(request: Request):
         and p.get("hub.verify_token") == s.wa_webhook_verify_token
     ):
         return Response(content=p.get("hub.challenge", ""), media_type="text/plain")
+    log_security_event("webhook_verification_failed", source_ip=request.client.host if request.client else None)
     raise HTTPException(status_code=403, detail="Verification failed")
 
 
 @app.post("/webhook/whatsapp")
 async def receive_message(request: Request, background_tasks: BackgroundTasks):
+    client_ip = request.client.host if request.client else "unknown"
     try:
         s = get_settings()
         body = await request.body()
@@ -50,6 +56,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
                 "webhook payload exceeded %d bytes (%d) — dropping before parse",
                 MAX_WEBHOOK_BODY_BYTES, len(body),
             )
+            log_security_event("oversized_webhook_payload", source_ip=client_ip, details={"bytes": len(body)})
             return {"status": "ok"}  
 
         sig = request.headers.get("X-Hub-Signature-256", "")
@@ -59,6 +66,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
         )
         if not hmac.compare_digest(sig, expected):
             logger.warning("webhook signature mismatch — dropping payload")
+            log_security_event("hmac_signature_mismatch", source_ip=client_ip)
             raise HTTPException(status_code=403)
 
         payload = json.loads(body)
@@ -66,8 +74,13 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
         if not msg:
             return {"status": "ok"}
 
-        if s.max_text_message_chars and msg.text and len(msg.text) > s.max_text_message_chars:
-            msg.text = msg.text[: s.max_text_message_chars]
+        if not validate_phone_number(msg.from_number):
+            logger.warning("invalid phone number format: %s — dropping", msg.from_number)
+            log_security_event("invalid_phone_number", source_ip=client_ip, details={"phone": msg.from_number})
+            return {"status": "ok"}
+
+        if msg.text:
+            msg.text = sanitize_text_input(msg.text, max_chars=s.max_text_message_chars or 2000)
 
         is_new = await mark_seen_or_skip(msg.message_id)
         if not is_new:
@@ -75,6 +88,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
 
         under_limit = await check_and_increment_rate_limit(msg.from_number, s.max_messages_per_hour)
         if not under_limit:
+            log_security_event("rate_limit_exceeded", source_ip=client_ip, whatsapp_number=msg.from_number)
             return {"status": "ok"}
 
         background_tasks.add_task(_dispatch_to_orchestrator, msg)
@@ -87,8 +101,8 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
         return {"status": "ok"}
 
 
+
 async def _dispatch_to_orchestrator(msg):
-    s = get_settings()
     turn_input: dict = {"last_message_type": msg.message_type}
 
     try:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """
 Seed data/schemes/raw/*.pdf -> scheme_documents / scheme_chunks.
 
@@ -31,6 +32,8 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # noqa: E402
 
 RAW_DIR = Path("data/schemes/raw")
 MANIFEST_PATH = RAW_DIR / "manifest.json"

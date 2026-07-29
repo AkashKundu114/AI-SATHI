@@ -15,8 +15,6 @@ VISION_PROMPT = (
     ' "category": "<textile|food|handicraft|agriculture|other>"}'
 )
 
-# One call, two captions: a warm WhatsApp-forward message for the customer
-# group, and a short punchy ad-style caption for wider promo use.
 CAPTION_SYSTEM = (
     "তুমি গ্রামীণ স্বনির্ভর গোষ্ঠীর মহিলাদের জন্য একজন বিজ্ঞাপন লেখক।\n\n"
     f"{DIGNITY_RULES_BENGALI}\n\n"
@@ -33,9 +31,9 @@ _FALLBACK_WHATSAPP_CAPTION = "✨ নতুন পণ্য এসেছে! ব
 _FALLBACK_AD_CAPTION = "নতুন পণ্য এখন উপলব্ধ — আজই অর্ডার করুন!"
 
 
-async def analyze_product_image(image_bytes: bytes) -> dict:
+async def analyze_product_image(image_bytes: bytes, user_id: str | None = None) -> dict:
     result = await route_vision_completion(
-        prompt=VISION_PROMPT, image_bytes=image_bytes, criticality=TaskCriticality.ROUTINE
+        prompt=VISION_PROMPT, image_bytes=image_bytes, criticality=TaskCriticality.ROUTINE, user_id=user_id
     )
     try:
         parsed = json.loads(re.sub(r"```json|```", "", result["text"]).strip())
@@ -57,7 +55,9 @@ def _price_range_for(product_info: dict) -> tuple[float, float]:
     return CATEGORY_PRICE_RANGES.get(category, CATEGORY_PRICE_RANGES["other"])
 
 
-async def generate_captions(product_info: dict, shg_name: str = "") -> tuple[dict, tuple[float, float]]:
+async def generate_captions(
+    product_info: dict, shg_name: str = "", user_id: str | None = None
+) -> tuple[dict, tuple[float, float]]:
     price_min, price_max = _price_range_for(product_info)
 
     prompt = (
@@ -67,7 +67,7 @@ async def generate_captions(product_info: dict, shg_name: str = "") -> tuple[dic
         "উপরের তথ্যের ভিত্তিতে দুটি ক্যাপশন লেখো।"
     )
     result = await route_completion(
-        system=CAPTION_SYSTEM, prompt=prompt, criticality=TaskCriticality.ROUTINE, confidence_floor=0.0
+        system=CAPTION_SYSTEM, prompt=prompt, criticality=TaskCriticality.ROUTINE, confidence_floor=0.0, user_id=user_id
     )
 
     try:

@@ -8,6 +8,7 @@ import re
 import httpx
 
 from shared.config.settings import get_settings
+from shared.metering.usage_tracker import check_and_increment_api_usage
 
 logger = logging.getLogger("flux_poster_client")
 
@@ -130,7 +131,13 @@ async def generate_poster_image(
     price_min: float,
     price_max: float,
     shg_name: str = "",
+    user_id: str | None = None,
 ) -> bytes:
+    if user_id:
+        allowed, current, limit = await check_and_increment_api_usage(user_id, "flux")
+        if not allowed:
+            raise FluxUnavailableError(f"Flux monthly usage limit reached ({current}/{limit})")
+
     try:
         return await asyncio.wait_for(
             _generate_poster_image_impl(

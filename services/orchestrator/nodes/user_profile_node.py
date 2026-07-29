@@ -6,6 +6,9 @@ from services.orchestrator.state import ConversationState
 from shared.db.models import User
 from shared.db.session import get_db_session
 
+from shared.metering.usage_tracker import get_user_plan_tier
+
+
 async def load_user_profile_node(state: ConversationState) -> dict:
     whatsapp_number = state["whatsapp_number"]
 
@@ -30,6 +33,8 @@ async def load_user_profile_node(state: ConversationState) -> dict:
             "trace": ["load_user_profile:new_user"],
         }
 
+    plan_tier = await get_user_plan_tier(str(user.id))
+
     profile = {
         "business_categories": user.business_categories or [],
         "self_reported_literacy": user.self_reported_literacy,
@@ -39,6 +44,7 @@ async def load_user_profile_node(state: ConversationState) -> dict:
         "trust_stage": user.trust_stage,
         "block": user.block,
         "district": user.district,
+        "plan_tier": plan_tier,
     }
     return {
         "is_new_user": False,

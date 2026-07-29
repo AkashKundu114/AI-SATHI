@@ -18,6 +18,7 @@ from services.orchestrator.nodes.market_predictor_node import market_predictor_n
 from services.orchestrator.nodes.pricing_node import pricing_node
 from services.orchestrator.nodes.negotiation_node import negotiation_node
 from services.orchestrator.nodes.price_chat_node import price_chat_node
+from services.orchestrator.nodes.upgrade_node import upgrade_node
 from services.orchestrator.nodes.conversation_node import general_conversation_node
 from shared.config.settings import get_settings
 
@@ -57,6 +58,8 @@ def _route_after_profile_load(state: ConversationState) -> str:
 
 def _route_after_intent(state: ConversationState) -> str:
     feature = state.get("active_feature", "IDLE")
+    if feature == "UPGRADE":
+        return "upgrade"
     if feature == "LEDGER":
         return "ledger"
     if feature == "LEDGER_REPORT":
@@ -93,6 +96,7 @@ def build_graph() -> StateGraph:
     graph.add_node("pricing", pricing_node)
     graph.add_node("negotiation", negotiation_node)
     graph.add_node("price_chat", price_chat_node)
+    graph.add_node("upgrade", upgrade_node)
     graph.add_node("unhandled", general_conversation_node)
 
     graph.set_entry_point("load_user_profile")
@@ -113,6 +117,7 @@ def build_graph() -> StateGraph:
         "classify_intent",
         _route_after_intent,
         {
+            "upgrade": "upgrade",
             "ledger": "ledger",
             "ledger_report": "ledger_report",
             "market": "market",
@@ -129,6 +134,7 @@ def build_graph() -> StateGraph:
     )
 
     graph.add_edge("onboarding", END)
+    graph.add_edge("upgrade", END)
     graph.add_edge("ledger", END)
     graph.add_edge("ledger_confirm", END)
     graph.add_edge("ledger_confirm_flow", END)
