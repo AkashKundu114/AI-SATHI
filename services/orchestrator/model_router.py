@@ -4,6 +4,7 @@ import base64
 import importlib
 import json
 import logging
+import time
 from enum import Enum
 
 try:
@@ -31,6 +32,37 @@ class AgentTier(str, Enum):
 
 class ModelUnavailableError(Exception):
     pass
+
+
+_BREAKER_FAILURE_THRESHOLD = 5
+_BREAKER_COOLDOWN_SECONDS = 30.0
+
+_breaker_state = {"consecutive_failures": 0, "open_until": 0.0}
+
+
+def _breaker_is_open() -> bool:
+    return time.monotonic() < _breaker_state["open_until"]
+
+
+def _record_sarvam_failure() -> None:
+    _breaker_state["consecutive_failures"] += 1
+    if _breaker_state["consecutive_failures"] >= _BREAKER_FAILURE_THRESHOLD:
+        _breaker_state["open_until"] = time.monotonic() + _BREAKER_COOLDOWN_SECONDS
+        logger.warning(
+            "Sarvam circuit breaker opened after %d consecutive failures — "
+            "skipping Sarvam for %.0fs",
+            _breaker_state["consecutive_failures"], _BREAKER_COOLDOWN_SECONDS,
+        )
+
+
+def _record_sarvam_success() -> None:
+    _breaker_state["consecutive_failures"] = 0
+    _breaker_state["open_until"] = 0.0
+
+
+def _reset_breaker_for_tests() -> None:
+    _breaker_state["consecutive_failures"] = 0
+    _breaker_state["open_until"] = 0.0
 
 
 def _parse_self_reported_confidence(text: str) -> float:
@@ -73,14 +105,18 @@ async def route_completion(
     s = get_settings()
     model_name = s.sarvam_advanced_model if tier == AgentTier.ADVANCED else s.sarvam_chat_model
 
-    if s.sarvam_api_key:
+    if s.sarvam_api_key and not _breaker_is_open():
         try:
             text = await sarvam_client.chat_completion(system, prompt, model=model_name)
+            _record_sarvam_success()
             if _parse_self_reported_confidence(text) >= confidence_floor:
                 return {"text": text, "model_used": f"sarvam-{tier.value}", "escalated": False}
             logger.warning("Sarvam (%s) low self-reported confidence, falling through to local", tier.value)
         except SarvamUnavailableError as exc:
+            _record_sarvam_failure()
             logger.warning("Sarvam (%s) unavailable, falling through to local: %s", tier.value, exc)
+    elif s.sarvam_api_key and _breaker_is_open():
+        logger.info("Sarvam circuit breaker open — skipping Sarvam call, going straight to local fallback")
 
     if s.use_local_models:
         try:

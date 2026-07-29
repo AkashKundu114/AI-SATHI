@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily AI-SATHI dedup/rate-limit retention prune
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

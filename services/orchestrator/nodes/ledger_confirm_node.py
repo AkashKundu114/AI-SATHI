@@ -6,6 +6,7 @@ from services.orchestrator.model_router import (
     TaskCriticality,
     ModelUnavailableError,
 )
+from services.orchestrator.nodes.ledger_node import MAX_TRANSACTIONS_PER_ENTRY
 
 AFFIRMATIVE = {"হ্যাঁ", "হ্যা", "ha", "haan", "thik", "ঠিক", "ok", "okay", "👍"}
 NEGATIVE = {"না", "no", "na", "bhul", "ভুল", "ঠিক নয়"}
@@ -98,7 +99,7 @@ async def _apply_correction(state: ConversationState, pending: dict, correction_
         }
 
     updated = {
-        "transactions": parsed.get("transactions", pending.get("transactions", [])),
+        "transactions": parsed.get("transactions", pending.get("transactions", []))[:MAX_TRANSACTIONS_PER_ENTRY],
         "overall_confidence": parsed.get("confidence", 0.0),
         "raw_transcript": pending.get("raw_transcript", ""),
         "extracted_by": result["model_used"],

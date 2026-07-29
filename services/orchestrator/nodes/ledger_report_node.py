@@ -4,8 +4,12 @@ from datetime import date
 
 from services.orchestrator.state import ConversationState
 from shared.i18n.bengali_calendar import GREGORIAN_MONTHS_BENGALI, format_bangla_calendar_label
+from shared.db.dedup import check_and_increment_daily_feature_cap
+from shared.config.feature_caps import MAX_LEDGER_REPORTS_PER_DAY
 
 BENGALI_MONTHS = GREGORIAN_MONTHS_BENGALI
+
+REPORT_CAP_REACHED_MSG = "আজকের জন্য রিপোর্ট তৈরির সীমা শেষ হয়ে গেছে। কাল আবার চেষ্টা করুন।"
 
 
 async def ledger_report_node(state: ConversationState) -> dict:
@@ -14,6 +18,15 @@ async def ledger_report_node(state: ConversationState) -> dict:
         return {
             "outbound_messages": [{"type": "text", "body": "আগে হিসাব শুরু করুন, তারপর রিপোর্ট পাবেন।"}],
             "trace": ["ledger_report_node:no_user"],
+        }
+
+    under_cap = await check_and_increment_daily_feature_cap(
+        user_id, "report", MAX_LEDGER_REPORTS_PER_DAY
+    )
+    if not under_cap:
+        return {
+            "outbound_messages": [{"type": "text", "body": REPORT_CAP_REACHED_MSG}],
+            "trace": ["ledger_report_node:daily_cap_reached"],
         }
 
     today = date.today()

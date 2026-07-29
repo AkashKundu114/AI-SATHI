@@ -20,6 +20,8 @@ _LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
 _BENGALI_LETTER_RE = re.compile(r"[\u0980-\u09FF]")
 _BANGLISH_LATIN_RATIO_THRESHOLD = 0.35
 
+MAX_TRANSACTIONS_PER_ENTRY = 20  
+
 
 def _looks_code_mixed(text: str) -> bool:
     latin = len(_LATIN_LETTER_RE.findall(text))
@@ -95,8 +97,12 @@ async def ledger_extract_node(state: ConversationState) -> dict:
     except json.JSONDecodeError:
         parsed = {"transactions": [], "confidence": 0.0}
 
+    transactions = parsed.get("transactions", [])
+    truncated = len(transactions) > MAX_TRANSACTIONS_PER_ENTRY
+    transactions = transactions[:MAX_TRANSACTIONS_PER_ENTRY]
+
     pending = {
-        "transactions": parsed.get("transactions", []),
+        "transactions": transactions,
         "overall_confidence": parsed.get("confidence", 0.0),
         "raw_transcript": transcript,
         "extracted_by": result["model_used"],
@@ -115,12 +121,13 @@ async def ledger_extract_node(state: ConversationState) -> dict:
         }
 
     outbound = _build_confirmation_message(pending, transcript)
+    trace_suffix = ":truncated" if truncated else ""
     return {
         "pending_ledger_entry": pending,
         "awaiting_confirmation": True,
         "ledger_confirmation_turns": 0,
         "outbound_messages": [outbound],
-        "trace": [f"ledger_extract_node:confirm:{result['model_used']}:floor={confidence_floor:.2f}:via={outbound['type']}"],
+        "trace": [f"ledger_extract_node:confirm:{result['model_used']}:floor={confidence_floor:.2f}:via={outbound['type']}{trace_suffix}"],
     }
 
 

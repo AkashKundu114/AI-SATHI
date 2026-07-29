@@ -19,6 +19,8 @@ logger = logging.getLogger("gateway")
 app = FastAPI(title="AI-SATHI Gateway", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
 
+MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024 
+
 
 @app.get("/health")
 async def health():
@@ -42,6 +44,14 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
     try:
         s = get_settings()
         body = await request.body()
+
+        if len(body) > MAX_WEBHOOK_BODY_BYTES:
+            logger.warning(
+                "webhook payload exceeded %d bytes (%d) — dropping before parse",
+                MAX_WEBHOOK_BODY_BYTES, len(body),
+            )
+            return {"status": "ok"}  
+
         sig = request.headers.get("X-Hub-Signature-256", "")
 
         expected = (

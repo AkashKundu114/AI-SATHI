@@ -12,15 +12,30 @@ from services.vision_service.poster_composer import generate_poster
 from services.orchestrator.model_router import ModelUnavailableError
 from services.market_service.aggregator import block_sales_trend, classify_trend
 from shared.catalog.local_products import category_keywords, find_local_product_by_slug
+from shared.db.dedup import check_and_increment_daily_feature_cap
+from shared.config.feature_caps import MAX_CATALOG_CREATIONS_PER_DAY
 
 logger = logging.getLogger("catalog_node")
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
+CAP_REACHED_MSG = "আজকের জন্য ছবি প্রসেসিংয়ের সীমা শেষ হয়ে গেছে। কাল আবার চেষ্টা করুন।"
+
 _CATEGORY_KEYWORDS = category_keywords()
 
 
 async def catalog_node(state: ConversationState) -> dict:
+    user_id = state.get("user_id")
+    if user_id:
+        under_cap = await check_and_increment_daily_feature_cap(
+            user_id, "catalog", MAX_CATALOG_CREATIONS_PER_DAY
+        )
+        if not under_cap:
+            return {
+                "outbound_messages": [{"type": "text", "body": CAP_REACHED_MSG}],
+                "trace": ["catalog_node:daily_cap_reached"],
+            }
+
     raw_key = state.get("raw_image_s3_key")  
     if not raw_key:
         return {

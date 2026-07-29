@@ -11,6 +11,9 @@ _BG_TOP = (250, 245, 235)
 _BG_BOTTOM = (232, 220, 198)
 
 MIN_RESOLUTION_PX = 300
+MAX_PIXELS = 30_000_000  
+
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS  
 
 
 def _get_session():
@@ -21,6 +24,8 @@ def _get_session():
 
 
 def _quality_check(img: Image.Image) -> str | None:
+    if img.width * img.height > MAX_PIXELS:
+        return "ছবিটা অস্বাভাবিক বড় মাপের। অন্য ছবি পাঠান।"
     if min(img.size) < MIN_RESOLUTION_PX:
         return "ছবিটা একটু ছোট বা অস্পষ্ট। আরো কাছ থেকে, ভালো আলোয় তুলুন।"
     return None
@@ -42,7 +47,15 @@ def _gradient_background(size: tuple[int, int]) -> Image.Image:
 
 def process_product_image(raw_bytes: bytes) -> tuple[bytes | None, str | None]:
     try:
-        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+        probe = Image.open(io.BytesIO(raw_bytes))
+        probe.verify() 
+    except Exception:
+        return None, "ছবিটা খুলতে পারলাম না। আবার পাঠান।"
+
+    try:
+        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")  
+    except Image.DecompressionBombError:
+        return None, "ছবিটা অস্বাভাবিক বড় মাপের। অন্য ছবি পাঠান।"
     except Exception:
         return None, "ছবিটা খুলতে পারলাম না। আবার পাঠান।"
 

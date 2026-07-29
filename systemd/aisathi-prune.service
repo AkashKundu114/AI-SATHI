@@ -1,0 +1,11 @@
+[Unit]
+Description=AI-SATHI dedup/rate-limit table retention prune
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/ai-sathi/.env
+WorkingDirectory=/opt/ai-sathi
+ExecStart=/usr/bin/python3 scripts/prune_dedup_tables.py
+SuccessExitStatus=0
