@@ -31,7 +31,9 @@ async def test_generation_failure_degrades_to_friendly_message(monkeypatch):
 
     _stub_pdf_generator(monkeypatch, _raise)
 
-    result = await node_module.ledger_report_node({"user_id": "u1"})
+    import uuid
+    uid = f"test-user-{uuid.uuid4().hex[:8]}"
+    result = await node_module.ledger_report_node({"user_id": uid})
     assert "generation_failed" in result["trace"][0]
     assert "সমস্যা হয়েছে" in result["outbound_messages"][0]["body"]
 
@@ -43,7 +45,9 @@ async def test_zero_entries_reports_no_data_for_the_month(monkeypatch):
 
     _stub_pdf_generator(monkeypatch, _fake)
 
-    result = await node_module.ledger_report_node({"user_id": "u1"})
+    import uuid
+    uid = f"test-user-{uuid.uuid4().hex[:8]}"
+    result = await node_module.ledger_report_node({"user_id": uid})
     assert result["trace"] == ["ledger_report_node:no_entries"]
 
 
