@@ -12,6 +12,11 @@ __pycache__/
 venv/
 env/
 
+archive/
+
+frontend/node_modules/
+frontend/package-lock.json
+
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -34,3 +39,5 @@ Thumbs.db
 *.swp
 *.log
 logs/
+
+.gemini/

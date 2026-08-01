@@ -16,8 +16,11 @@ class _FakeSettings:
 
 
 @pytest.fixture(autouse=True)
-def _reset_breaker():
+def _reset_breaker(monkeypatch):
     router_module._reset_breaker_for_tests()
+    async def _fake_charge(*a, **kw):
+        pass
+    monkeypatch.setattr(router_module, "charge_credits", _fake_charge, raising=False)
     yield
     router_module._reset_breaker_for_tests()
 
@@ -83,7 +86,8 @@ async def test_open_breaker_skips_sarvam_call_entirely(monkeypatch):
             system="s", prompt="p", criticality=router_module.TaskCriticality.ROUTINE
         )
 
-    assert call_count["n"] == calls_before  # breaker open — Sarvam not called again
+    assert call_count["n"] == calls_before
+
 
 
 @pytest.mark.asyncio

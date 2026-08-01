@@ -10,8 +10,7 @@ from services.orchestrator.model_router import ModelUnavailableError
 
 
 class _FakeS3:
-    """Minimal stand-in for boto3's S3 client, covering only the three
-    calls catalog_node actually makes."""
+    
 
     def __init__(self, get_object_bytes=b"fake-image-bytes", raise_on_get=False, raise_on_put=False):
         self._bytes = get_object_bytes
@@ -43,7 +42,21 @@ class _FakeS3:
 def _default_mocks(monkeypatch, s3=None, process_result=(b"processed", None),
                     vision_info=None, captions=None, prices=(80.0, 250.0), poster=(None, "none")):
     s3 = s3 or _FakeS3()
-    monkeypatch.setattr(node_module, "get_s3_client", lambda: s3)
+
+    def _fake_download_bytes(key):
+        res = s3.get_object(Bucket=None, Key=key)
+        return res["Body"].read()
+
+    def _fake_upload_bytes(key, data, content_type=None):
+        s3.put_object(Bucket=None, Key=key, Body=data, ContentType=content_type)
+
+    def _fake_generate_read_url(key, expires_in_seconds=86400):
+        return s3.generate_presigned_url(ClientMethod="get_object", Params={"Bucket": None, "Key": key}, ExpiresIn=expires_in_seconds)
+
+    monkeypatch.setattr(node_module, "download_bytes", _fake_download_bytes)
+    monkeypatch.setattr(node_module, "upload_bytes", _fake_upload_bytes)
+    monkeypatch.setattr(node_module, "generate_read_url", _fake_generate_read_url)
+    monkeypatch.setattr(node_module, "get_s3_client", lambda: s3, raising=False)
 
     async def _process(raw_bytes):
         return process_result
@@ -104,9 +117,7 @@ async def test_quality_check_failure_returns_the_specific_error_message(monkeypa
 
 @pytest.mark.asyncio
 async def test_vision_model_unavailable_returns_friendly_message(monkeypatch):
-    s3 = _FakeS3()
-    monkeypatch.setattr(node_module, "get_s3_client", lambda: s3)
-    monkeypatch.setattr(node_module, "process_product_image", lambda raw: (b"processed", None))
+    s3 = _default_mocks(monkeypatch)
 
     async def _raise(raw_bytes):
         raise ModelUnavailableError("sarvam vision down")
@@ -132,7 +143,8 @@ async def test_happy_path_without_poster_falls_back_to_plain_image_and_caption(m
 
     assert result["catalog_result"]["product_type"] == "papad"
     assert result["catalog_result"]["price_min"] == 80.0
-    assert len(result["outbound_messages"]) == 3  # image + ad caption + english-caption offer
+    assert len(result["outbound_messages"]) == 3
+
     assert result["outbound_messages"][0]["type"] == "image"
     assert "catalog_node:done" in result["trace"][0]
     assert "poster=none" in result["trace"][0]

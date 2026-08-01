@@ -133,7 +133,8 @@ async def test_code_mixed_transcript_triggers_translation_before_extraction(monk
         return {"text": "আজ পাপড় তিনশো টাকায় বিক্রি করেছি", "model_used": "sarvam-translate"}
 
     async def _fake_completion(**kwargs):
-        assert kwargs["prompt"] == "আজ পাপড় তিনশো টাকায় বিক্রি করেছি"  # translated text was used
+        assert kwargs["prompt"] == "আজ পাপড় তিনশো টাকায় বিক্রি করেছি"
+
         return _fake_completion_result({"transactions": [{"type": "INCOME", "amount_inr": 300, "item_bengali": "পাপড়"}], "confidence": 0.9})
 
     monkeypatch.setattr(node_module, "route_translation", _fake_translate)
@@ -165,7 +166,8 @@ async def test_translation_failure_falls_back_to_raw_transcript(monkeypatch):
         raise ModelUnavailableError("translation down")
 
     async def _fake_completion(**kwargs):
-        assert kwargs["prompt"] == "aj papad tinsho taka bikri korechi"  # raw text used, untranslated
+        assert kwargs["prompt"] == "aj papad tinsho taka bikri korechi"
+
         return _fake_completion_result({"transactions": [{"type": "INCOME", "amount_inr": 300, "item_bengali": "পাপড়"}], "confidence": 0.9})
 
     monkeypatch.setattr(node_module, "route_translation", _fake_translate)

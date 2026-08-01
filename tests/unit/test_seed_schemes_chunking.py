@@ -35,7 +35,8 @@ def test_chunk_text_long_text_splits_into_multiple_chunks():
 
 
 def test_chunk_text_overlap_means_consecutive_chunks_share_content():
-    text = "০১২৩৪৫৬৭৮৯" * 200  # 2000 chars
+    text = "০১২৩৪৫৬৭৮৯" * 200
+
     chunks = seed_schemes._chunk_text(text, chunk_chars=800, overlap=100)
     for i in range(len(chunks) - 1):
         tail = chunks[i][-50:]

@@ -1,0 +1,13 @@
+[run]
+branch = True
+omit =
+    tests/*
+    */__init__.py
+    setup.py
+    */migrations/*
+    */alembic/*
+    */scripts/*
+    */frontend/*
+    */backend/services/*
+    */backend/scripts/*
+    */backend/db/alembic/*

@@ -31,8 +31,6 @@ def test_undersized_image_rejected_by_quality_check():
 
 
 def test_oversized_pixel_dimensions_rejected_by_quality_check():
-    # construct a fake object with the same interface Image exposes to
-    # exercise the dimension check without needing a real 30MP+ file
     class _FakeImg:
         width = 20000
         height = 20000

@@ -63,7 +63,7 @@ Run the test suite any time (no API keys or network required):
 ```bash
 make test
 ```
-156 tests, all deterministic/offline — covers ledger validation, grounding
+389 tests, all deterministic/offline — covers ledger validation, grounding
 verification, pricing/negotiation floors, graph routing, the shared
 knowledge base (festivals, district melas, crop calendar, life-cycle
 occasions), Bengali digit/number-word handling, and the scheme-seeding

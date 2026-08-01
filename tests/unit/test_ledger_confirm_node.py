@@ -66,7 +66,8 @@ async def test_unrecognized_reply_asks_yes_or_no():
 
 @pytest.mark.asyncio
 async def test_affirmative_reply_with_no_user_id_resets_with_message(monkeypatch):
-    state = {"raw_input_text": "হ্যাঁ", "pending_ledger_entry": _PENDING}  # no user_id
+    state = {"raw_input_text": "হ্যাঁ", "pending_ledger_entry": _PENDING}
+
     result = await node_module.ledger_confirm_node(state)
     assert result["pending_ledger_entry"] is None
     assert result["trace"] == ["ledger_confirm_node:save_failed_no_user_id"]
@@ -89,7 +90,8 @@ async def test_affirmative_reply_saves_and_reports_income_expense_totals(monkeyp
     assert result["awaiting_confirmation"] is False
     assert "আয়: ₹300" in result["outbound_messages"][0]["body"]
     assert "খরচ: ₹100" in result["outbound_messages"][0]["body"]
-    assert len(fake_ctx.fake_db.added) == 2  # both transactions written
+    assert len(fake_ctx.fake_db.added) == 2
+
 
 
 @pytest.mark.asyncio
@@ -105,7 +107,8 @@ async def test_affirmative_reply_with_absurd_amount_rejects_before_saving(monkey
 
     assert result["pending_ledger_entry"] is None
     assert result["trace"] == ["ledger_confirm_node:amount_out_of_range"]
-    assert len(fake_ctx.fake_db.added) == 0  # nothing written
+    assert len(fake_ctx.fake_db.added) == 0
+
 
 
 @pytest.mark.asyncio
@@ -156,7 +159,8 @@ async def test_correction_model_unavailable_asks_to_retry_later(monkeypatch):
     state = {"raw_input_text": "না", "pending_ledger_entry": _PENDING}
     result = await node_module.ledger_confirm_node(state)
     assert "সমস্যা হচ্ছে" in result["outbound_messages"][0]["body"]
-    assert "pending_ledger_entry" not in result  # unchanged — correction was never applied
+    assert "pending_ledger_entry" not in result
+
 
 
 @pytest.mark.asyncio

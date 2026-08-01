@@ -10,12 +10,10 @@ def test_admin_metrics_email_unauthorized(monkeypatch):
     s = get_settings()
     monkeypatch.setattr(s, "admin_api_token", "secret_admin_token_123")
 
-    # Missing token header
     response = client.post("/admin/metrics/email")
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized"
 
-    # Wrong token header
     response = client.post("/admin/metrics/email", headers={"X-Admin-Token": "wrong_token"})
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized"

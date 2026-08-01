@@ -30,7 +30,6 @@ def test_sanitize_text_input_edge_cases():
     assert sanitize_text_input("") == ""
     assert sanitize_text_input(None) == ""
     
-    # Strip null bytes and control codes
     text_with_control = "Line 1\x00\x01\x02\nLine 2"
     clean = sanitize_text_input(text_with_control)
     assert "\x00" not in clean
@@ -48,4 +47,5 @@ def test_validate_phone_number_strict():
     assert validate_phone_number(None) is False
     assert validate_phone_number("abc") is False
     assert validate_phone_number("SELECT * FROM users") is False
-    assert validate_phone_number("+000000000000000000000") is False  # too long for E.164
+    assert validate_phone_number("+000000000000000000000") is False
+

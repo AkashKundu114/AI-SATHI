@@ -16,7 +16,9 @@ services:
     restart: unless-stopped
 
   gateway:
-    image: ghcr.io/AkashKundu114/ai-sathi:latest
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
     env_file: .env
     expose:
       - "8000"

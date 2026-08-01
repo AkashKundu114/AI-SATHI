@@ -37,7 +37,8 @@ async def _no_reason(**kwargs):
 
 @pytest.mark.asyncio
 async def test_no_profile_returns_no_profile_message():
-    result = await node_module.negotiation_node({})  # no user_id at all
+    result = await node_module.negotiation_node({})
+
     assert result["outbound_messages"][0]["body"] == node_module.NO_PROFILE_MSG
 
 
@@ -69,12 +70,14 @@ async def test_starting_offer_at_or_above_floor_is_accepted(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_starting_offer_below_floor_gets_a_counter(monkeypatch):
-    monkeypatch.setattr(node_module, "get_db_session", _fake_get_db_session(profile=_profile()))  # floor = 130
+    monkeypatch.setattr(node_module, "get_db_session", _fake_get_db_session(profile=_profile()))
+
     monkeypatch.setattr(node_module, "route_completion", _no_reason)
 
     result = await node_module.negotiation_node({"user_id": "u1", "raw_input_text": "কাস্টমার ৮০ টাকা বলেছে"})
     assert result["awaiting_negotiation"] is True
-    assert result["pending_negotiation"]["last_counter"] == 130.0  # turn 1 holds at floor
+    assert result["pending_negotiation"]["last_counter"] == 130.0
+
     assert "130" in result["outbound_messages"][0]["body"]
 
 
@@ -94,7 +97,8 @@ async def test_continuing_with_no_offer_repeats_the_ask():
     pending = {"floor_price": 130.0, "product_type": "papad", "turns": 1}
     result = await node_module.negotiation_node({"pending_negotiation": pending, "raw_input_text": "চিন্তা করছি"})
     assert result["outbound_messages"][0]["body"] == node_module.NO_OFFER_MSG
-    assert result["pending_negotiation"] == pending  # unchanged
+    assert result["pending_negotiation"] == pending
+
 
 
 @pytest.mark.asyncio
@@ -112,7 +116,6 @@ async def test_second_counter_splits_gap_between_floor_and_offer(monkeypatch):
 
     pending = {"floor_price": 200.0, "product_type": "papad", "turns": 1, "last_counter": 200.0}
     result = await node_module.negotiation_node({"pending_negotiation": pending, "raw_input_text": "১০০ টাকা দেব"})
-    # turn becomes 2: max(floor, (floor+offer)/2) = max(200, 150) = 200
     assert result["pending_negotiation"]["last_counter"] == 200.0
 
 
@@ -131,7 +134,8 @@ async def test_model_unavailable_during_reason_generation_still_completes_deal(m
 @pytest.mark.asyncio
 async def test_reason_containing_a_number_is_discarded_not_shown(monkeypatch):
     async def _fake(**kwargs):
-        return {"text": "৫০ টাকা কম দিলেও চলবে", "model_used": "sarvam-advanced", "escalated": False}  # model breaks the rule
+        return {"text": "৫০ টাকা কম দিলেও চলবে", "model_used": "sarvam-advanced", "escalated": False}
+
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 

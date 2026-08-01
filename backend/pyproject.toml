@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-sathi-shared"
+version = "0.1.0"
+description = "Shared utilities for AI‑SATHI project"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "Akash Kundu",email = "akashkundu1152@gmail.com"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "sqlalchemy",
+    "pydantic",
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+]
+
+[tool.setuptools.packages.find]
+where = ["backend"]

@@ -25,7 +25,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: services/gateway/Dockerfile
+      dockerfile: backend/services/gateway/Dockerfile
     env_file: .env
     ports:
       - "8000:8000"

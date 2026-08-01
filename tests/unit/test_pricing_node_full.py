@@ -73,7 +73,8 @@ async def test_happy_path_no_block_no_market_data(monkeypatch):
     monkeypatch.setattr(node_module, "route_completion", _fake_completion)
 
     result = await node_module.pricing_node({"user_id": "u1"})
-    assert "₹130" in result["outbound_messages"][0]["body"]  # 100 * 1.30
+    assert "₹130" in result["outbound_messages"][0]["body"]
+
     assert result["market_report"] is None
 
 

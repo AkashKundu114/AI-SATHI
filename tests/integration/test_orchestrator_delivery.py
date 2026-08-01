@@ -1,6 +1,6 @@
 import pytest
 
-from services.orchestrator import celery_entrypoint
+from services.gateway.turn_processor import process_turn_and_dispatch
 
 
 class _FakeGraph:
@@ -35,15 +35,16 @@ async def test_process_turn_delivers_graph_outbound_messages(monkeypatch):
         sent.append(("image", to, url, caption))
         return {"messages": [{"id": "image-id"}]}
 
-    monkeypatch.setattr(celery_entrypoint, "get_compiled_graph", _graph)
-    monkeypatch.setattr(celery_entrypoint, "send_text", _send_text)
+    import services.gateway.turn_processor as turn_processor
+    monkeypatch.setattr(turn_processor, "get_compiled_graph", _graph)
+    monkeypatch.setattr(turn_processor, "send_text", _send_text)
 
     import shared.whatsapp.sender as sender
 
     monkeypatch.setattr(sender, "send_document", _send_document)
     monkeypatch.setattr(sender, "send_image", _send_image)
 
-    await celery_entrypoint._process_turn_async("919876543210", {"raw_input_text": "hello"})
+    await process_turn_and_dispatch("919876543210", {"raw_input_text": "hello"})
 
     assert sent == [
         ("text", "919876543210", "ঠিক আছে"),

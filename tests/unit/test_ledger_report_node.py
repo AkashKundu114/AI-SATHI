@@ -18,6 +18,13 @@ def _stub_pdf_generator(monkeypatch, fake):
     )
 
 
+@pytest.fixture(autouse=True)
+def _mock_cap(monkeypatch):
+    async def _fake_cap(*a, **kw):
+        return True
+    monkeypatch.setattr(node_module, "check_and_increment_daily_feature_cap", _fake_cap)
+
+
 @pytest.mark.asyncio
 async def test_no_user_id_asks_to_start_ledger_first():
     result = await node_module.ledger_report_node({})
