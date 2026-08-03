@@ -507,3 +507,30 @@ assumed to hold at any larger scale.
   before that test file is green again.
 - See `README-azure-deploy.md` at the repo root for the concrete cost
   breakdown and deploy steps that go with this section.
+
+---
+
+## 12. Late-2026 Codebase Updates & Clean-up
+
+A major refactoring and clean-up pass was conducted to prepare the project for downstream development. Key changes include:
+
+### 12.1 Codebase Comment Stripping
+To maintain documentation integrity and establish a clean codebase target, all inline comments, block comments, and docstrings were stripped across all `.py`, `.js`, `.ts`, `.html`, and `.css` files. 
+- Shebang headers (e.g., `#!/usr/bin/env python`) and file-encoding declarations (e.g., `# -*- coding: utf-8 -*-`) are explicitly preserved to maintain executable compatibility.
+- Multi-line triple-quoted strings serving as SQL queries or HTML email templates have been fully validated and preserved to prevent runtime syntax/query errors.
+
+### 12.2 Structural Integrity & Missing Services Restoration
+We restored key application components and routes that had been temporarily archived:
+- Restored the active LangGraph routing configuration in the Orchestrator's state machine, linking all missing nodes (`catalog`, `market`, `pricing`, `negotiation`, `price_chat`) within `services/orchestrator/graph.py`.
+- Reintegrated the Vision service and Catalog storefront components under `/services` to enable background removal, dual dignity-constrained Bengali captioning, and image/poster compositing.
+
+### 12.3 Environment & Ignore Rules
+The repository ignores have been hardened:
+- `.gitignore` and `.dockerignore` now exclude `.gemini/` (Antigravity system files), local `logs/`, and node modules (`node_modules/`) globally.
+
+### 12.4 PDF Generation & Platform Compatibility
+- Wrapped the `weasyprint` system dependency imports in `services/pdf_service/generator.py` with an `OSError` safety handler. If the platform lacks the underlying GTK+ library (`gobject-2.0-0`), the application falls back gracefully rather than crashing.
+
+### 12.5 Sarvam Document Digitization Integration
+Added API client integration for Sarvam's Document Digitization API (`/doc-digitization/v1/jobs` endpoint) to facilitate async extraction of structured information from PDF/document uploads in Bengali. Tested and verified via unit tests.
+

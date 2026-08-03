@@ -109,14 +109,12 @@ inventing its own.
 Full design rationale: see `docs/architecture.md` (§8 for the OpenAI
 removal, §10 for the shared knowledge base / dignity rules / Flow-verified
 ledger / friend pricing chat / negotiation tactics / cross-verification)
-and `docs/security.md` / `docs/red-team.md` / `docs/red-team-agents-v2.md`
-for what's hardened and why. Step-by-step first-run instructions: see
-`SETUP.md`. Turn-by-turn detail on every incremental pass that built the
-current state lives in `CHANGELOG_v4_knowledge_and_dignity.md` through
-`CHANGELOG_v12_scheme_seeding_and_schema_fix.md` at the repo root — those
-files are the "what changed, what's real vs. approximate, what's still
-honestly unverified" record; this README and `docs/architecture.md` are the
-current-state summary.
+and `docs/security.md` / `docs/red-team.md` for what's hardened and why. Step-by-step first-run instructions: see
+`SETUP.md`. For a detailed summary of the late-2026 update session (including
+the complete stripping of comments, environment and ignore configurations,
+weasyprint adjustments, and Sarvam PDF parser integration), see the updates section in the system design rationale documentation at [`docs/architecture.md#12-late-2026-codebase-updates--clean-up`](docs/architecture.md#12-late-2026-codebase-updates--clean-up).
+
+
 
 ## What's genuinely verified vs. what still needs a live check
 

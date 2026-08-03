@@ -20,7 +20,15 @@ async def charge_credits(vendor: str, credits: float, call_type: str, user_id: s
         row = (
             await db.execute(
                 text(
-                    
+                    """
+                    UPDATE credit_budget
+                    SET used = used + :credits,
+                        degraded_mode = (used + :credits) >= (total_budget * :degrade_threshold),
+                        hard_stopped = (used + :credits) >= (total_budget * :hard_stop_threshold),
+                        updated_at = NOW()
+                    WHERE vendor = :vendor
+                    RETURNING used, total_budget, degraded_mode, hard_stopped
+                    """
                 ),
                 {
                     "vendor": vendor,
