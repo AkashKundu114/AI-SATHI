@@ -1,52 +1,19 @@
 import React, { useState } from 'react';
 
 export default function Auth({ onLogin }) {
-  const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handlePhoneSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
-    // Basic regex for phone validation (allows optional +, followed by 10-14 digits)
-    const phoneRegex = /^\+?[0-9]{10,14}$/;
-    if (!phoneRegex.test(phone)) {
-      setError('Please enter a valid phone number (e.g. +919876543210)');
+
+    if (!username.trim() || !password.trim()) {
+      setError('Please fill in all fields');
       return;
     }
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/v1/auth/request-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ phone })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to request OTP');
-      }
-
-      if (data.status === 'success') {
-        setStep(2);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
 
     setLoading(true);
     try {
@@ -55,7 +22,7 @@ export default function Auth({ onLogin }) {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ phone, otp })
+        body: JSON.stringify({ username, password })
       });
       
       const data = await response.json();
@@ -86,123 +53,124 @@ export default function Auth({ onLogin }) {
       fontFamily: 'var(--font-body)'
     }}>
       <div className="card-sharp" style={{
-        maxWidth: '400px',
+        maxWidth: '420px',
         width: '100%',
-        padding: '2.5rem',
+        padding: '3rem',
         textAlign: 'center',
-        boxShadow: 'var(--shadow-flat)',
-        borderRadius: 'var(--radius-sharp)'
+        boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 100px rgba(212,175,55,0.05)',
+        borderRadius: 'var(--radius-sharp)',
+        border: '1px solid var(--border-accent)',
+        background: 'linear-gradient(135deg, var(--surface-dark), var(--bg-dark))',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
-        <h1 style={{ marginBottom: '0.5rem', fontSize: '1.75rem', fontWeight: '600' }}>Welcome to AI-SATHI</h1>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '4px',
+          background: 'linear-gradient(90deg, var(--accent-gold), var(--accent-sapphire))'
+        }}></div>
+
+        <h1 style={{ 
+          marginBottom: '0.5rem', 
+          fontSize: '2rem', 
+          fontWeight: '700',
+          letterSpacing: '-0.5px',
+          background: 'linear-gradient(90deg, var(--text-main), var(--text-dim))',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>
+          AI-SATHI
+        </h1>
         
-        {step === 1 ? (
-          <>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem' }}>
-              Enter your phone number to continue.
-            </p>
-            <form onSubmit={handlePhoneSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input 
-                type="tel" 
-                placeholder="+919876543210" 
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                style={{
-                  padding: '0.875rem 1rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-accent)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-main)',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
-                required
-              />
-              {error && <div style={{ color: 'var(--accent-crimson)', fontSize: '0.85rem', textAlign: 'left' }}>{error}</div>}
-              
-              <button 
-                type="submit" 
-                disabled={loading}
-                style={{
-                  backgroundColor: 'var(--text-main)',
-                  color: 'var(--bg-dark)',
-                  border: 'none',
-                  padding: '0.875rem',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  marginTop: '0.5rem',
-                  opacity: loading ? 0.7 : 1,
-                  transition: 'opacity 0.2s'
-                }}
-              >
-                {loading ? 'Sending OTP...' : 'Continue'}
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem' }}>
-              Enter the OTP sent to {phone}.
-            </p>
-            <form onSubmit={handleOtpSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input 
-                type="text" 
-                placeholder="123456" 
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                style={{
-                  padding: '0.875rem 1rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-accent)',
-                  backgroundColor: 'var(--surface-hover)',
-                  color: 'var(--text-main)',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
-                required
-              />
-              {error && <div style={{ color: 'var(--accent-crimson)', fontSize: '0.85rem', textAlign: 'left' }}>{error}</div>}
-              
-              <button 
-                type="submit" 
-                disabled={loading}
-                style={{
-                  backgroundColor: 'var(--text-main)',
-                  color: 'var(--bg-dark)',
-                  border: 'none',
-                  padding: '0.875rem',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  marginTop: '0.5rem',
-                  opacity: loading ? 0.7 : 1,
-                  transition: 'opacity 0.2s'
-                }}
-              >
-                {loading ? 'Verifying...' : 'Login'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                style={{
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-muted)',
-                  border: 'none',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  marginTop: '0.5rem',
-                  textDecoration: 'underline'
-                }}
-              >
-                Change Phone Number
-              </button>
-            </form>
-          </>
-        )}
+        <p style={{ color: 'var(--text-muted)', marginBottom: '2.5rem', fontSize: '0.95rem' }}>
+          Secure Portal Access
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Username or Phone
+            </label>
+            <input 
+              type="text" 
+              placeholder="e.g. admin or 9064349004" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{
+                padding: '1rem 1.25rem',
+                borderRadius: 'var(--radius-sharp)',
+                border: '1px solid var(--border-dark)',
+                backgroundColor: 'var(--bg-dark)',
+                color: 'var(--text-main)',
+                fontSize: '1rem',
+                outline: 'none',
+                transition: 'border-color 0.25s, box-shadow 0.25s',
+              }}
+              required
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Password
+            </label>
+            <input 
+              type="password" 
+              placeholder="••••••••" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                padding: '1rem 1.25rem',
+                borderRadius: 'var(--radius-sharp)',
+                border: '1px solid var(--border-dark)',
+                backgroundColor: 'var(--bg-dark)',
+                color: 'var(--text-main)',
+                fontSize: '1rem',
+                outline: 'none',
+                transition: 'border-color 0.25s, box-shadow 0.25s',
+              }}
+              required
+            />
+          </div>
+
+          {error && (
+            <div style={{ 
+              color: 'var(--accent-crimson)', 
+              fontSize: '0.88rem', 
+              textAlign: 'left',
+              backgroundColor: 'rgba(231,76,60,0.08)',
+              padding: '0.75rem 1rem',
+              borderRadius: 'var(--radius-sharp)',
+              borderLeft: '3px solid var(--accent-crimson)',
+              marginTop: '0.5rem'
+            }}>
+              {error}
+            </div>
+          )}
+          
+          <button 
+            type="submit" 
+            disabled={loading}
+            style={{
+              background: 'linear-gradient(90deg, var(--accent-gold), var(--accent-sapphire))',
+              color: 'var(--bg-dark)',
+              border: 'none',
+              padding: '1rem',
+              borderRadius: 'var(--radius-sharp)',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              marginTop: '1rem',
+              opacity: loading ? 0.7 : 1,
+              transition: 'opacity 0.2s, transform 0.2s',
+            }}
+          >
+            {loading ? 'Authenticating...' : 'Sign In'}
+          </button>
+        </form>
       </div>
     </div>
   );
