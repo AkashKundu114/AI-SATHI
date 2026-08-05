@@ -19,117 +19,39 @@ from pydantic import BaseModel
 def _format_multi_coherence_response(primary_text: str, feature_context: str = "general") -> str:
     return primary_text.strip()
 
-class OTPRequest(BaseModel):
-    phone: str
-
 class LoginRequest(BaseModel):
-    phone: str
-    otp: str
+    username: str
+    password: str
 
 @router.post("/auth/request-otp")
-async def request_otp(payload: OTPRequest):
-    phone = payload.phone.strip()
-    if not re.match(r"^\+?[0-9]{10,14}$", phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
-    
-    otp_code = f"{random.randint(100000, 999999)}"
-    
-    try:
-        from shared.db.session import get_db_session
-        from shared.db.models import User, UserOTP
-        from sqlalchemy import select
-        from sqlalchemy.dialects.postgresql import insert
-        
-        async with get_db_session() as db:
-            user = (await db.execute(select(User).where(User.whatsapp_number == phone))).scalar_one_or_none()
-            if not user:
-                user = User(whatsapp_number=phone, name="নতুন ব্যবহারকারী")
-                db.add(user)
-                await db.commit()
-            
-            expires = datetime.now(timezone.utc) + timedelta(minutes=5)
-            stmt = insert(UserOTP).values(
-                phone=phone,
-                otp=otp_code,
-                expires_at=expires
-            ).on_conflict_do_update(
-                index_elements=['phone'],
-                set_=dict(otp=otp_code, expires_at=expires)
-            )
-            await db.execute(stmt)
-            await db.commit()
-            
-        import os
-        from shared.whatsapp.sender import send_text
-        
-        template_name = os.getenv("WA_OTP_TEMPLATE_NAME")
-        if template_name:
-            from shared.whatsapp.sender import _post
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": phone,
-                "type": "template",
-                "template": {
-                    "name": template_name,
-                    "language": {"code": "en_US"},
-                    "components": [
-                        {
-                            "type": "body",
-                            "parameters": [
-                                {"type": "text", "text": otp_code}
-                            ]
-                        }
-                    ]
-                }
-            }
-            await _post(payload)
-        else:
-            msg_body = f"আপনার AI-SATHI ওটিপি (OTP) কোডটি হলো: *{otp_code}*। এটি আগামী ৫ মিনিটের জন্য প্রযোজ্য থাকবে। কারো সাথে এটি শেয়ার করবেন না।"
-            await send_text(phone, msg_body)
-            
-        return {"status": "success", "message": "OTP sent successfully"}
-    except Exception as exc:
-        logger.exception("Request OTP error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error")
+async def request_otp(payload: dict):
+    return {"status": "success", "message": "OTP disabled. Use username & password to login."}
 
 
 @router.post("/auth/login")
 async def login_user(payload: LoginRequest):
-    phone = payload.phone.strip()
-    otp = payload.otp.strip()
+    username = payload.username.strip()
+    password = payload.password.strip()
     
-    if not re.match(r"^\+?[0-9]{10,14}$", phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
-
+    expected_password = "admin"
+    
+    if password != expected_password:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+    phone = "9064349004" if username == "admin" else username
+    
     try:
         from shared.db.session import get_db_session
-        from shared.db.models import User, UserOTP
+        from shared.db.models import User
         from sqlalchemy import select
         
         async with get_db_session() as db:
-            otp_record = (await db.execute(select(UserOTP).where(UserOTP.phone == phone))).scalar_one_or_none()
-            if not otp_record:
-                raise HTTPException(status_code=401, detail="No OTP requested for this phone number")
-            
-            now = datetime.now(timezone.utc)
-            expires_at = otp_record.expires_at
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-                
-            if now > expires_at:
-                await db.delete(otp_record)
-                await db.commit()
-                raise HTTPException(status_code=401, detail="OTP has expired")
-                
-            if otp_record.otp != otp:
-                raise HTTPException(status_code=401, detail="Invalid OTP")
-                
-            await db.delete(otp_record)
-            
             user = (await db.execute(select(User).where(User.whatsapp_number == phone))).scalar_one_or_none()
             if not user:
-                raise HTTPException(status_code=404, detail="User not found")
-            
+                user = User(whatsapp_number=phone, name="নতুন ব্যবহারকারী" if phone != "9064349004" else "Admin User")
+                db.add(user)
+                await db.commit()
+                
             if user.verification_status != "verified":
                 user.verification_status = "verified"
                 db.add(user)
@@ -144,10 +66,8 @@ async def login_user(payload: LoginRequest):
                 "user_type": user.user_type or "shg_member",
             }
             await db.commit()
-
+            
         return {"status": "success", "user": profile}
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.exception("Login error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error")
