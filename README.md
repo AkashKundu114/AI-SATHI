@@ -84,7 +84,7 @@ content). With no OpenAI fallback anymore, this is the only thing that
 keeps every agent alive during a Sarvam outage — see `docs/COST.md`.
 
 Optional, and safe to leave unset: `WA_LEDGER_CONFIRM_FLOW_ID` (tap-to-confirm
-ledger Flow — falls back to plain text if unset), S3 bucket, Langfuse,
+ledger Flow - falls back to plain text if unset), S3 bucket, Langfuse,
 `DATA_GOV_IN_API_KEY` (Agmarknet mandi prices), Flux Pro, Bengali font for
 poster generation.
 
@@ -101,7 +101,7 @@ every agent, with retries and hard timeouts, raising a typed
 `ModelUnavailableError` that every node catches and turns into a friendly
 Bengali message instead of a crash. `shared/knowledge/` is the single
 source of cultural/seasonal/market-timing context (statewide festivals,
-district-specific melas, life-cycle occasions across Hindu/Muslim/Christian
+district-specific fairs, life-cycle occasions across Hindu/Muslim/Christian
 Bengali communities, a West Bengal crop sowing/harvest calendar, negotiation
 tactics, and tone/dignity rules) every agent reads from instead of each node
 inventing its own.
