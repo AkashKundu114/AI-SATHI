@@ -43,15 +43,30 @@ async def _normalize_transcript(transcript: str) -> str:
         return transcript
 
 EXTRACTION_SYSTEM = (
-    "তুমি বাংলা আর্থিক তথ্য নিষ্কাশনকারী। নিচের বাংলা টেক্সট থেকে\n"
-    "লেনদেন বের করো এবং শুধুমাত্র এই JSON ফরম্যাটে ফেরত দাও, অন্য কিছু লিখো না:\n\n"
+    "তুমি বাংলা ও গ্রামীণ আর্থিক তথ্য নিষ্কাশনকারী সহকারী। নিচের বাংলা/ইংরেজি/বাংলিশ বার্তা থেকে\n"
+    "লেনদেনের তথ্য বের করো এবং শুধুমাত্র এই JSON ফরম্যাটে ফেরত দাও, অন্য কিছু লিখো না:\n\n"
     '{"transactions": [{"type": "INCOME"|"EXPENSE"|"LEND"|"BORROW", "amount_inr": <total_number>,\n'
     ' "item_bengali": "...", "quantity": <number|null>, "unit": "...|null"}],\n'
     ' "confidence": <0.0-1.0>}\n\n'
-    "IMPORTANT: `amount_inr` MUST be the TOTAL amount. If the user gives a per-unit price and a quantity (e.g. '50 takar duto'), calculate the total: 50 * 2 = 100. Also translate quantities like 'duto'=2, 'tin te'=3.\n"
-    "Bengali number words: এক/duto/দুটো=2, তিন=3, চার=4, পাঁচ=5, দশ=10, পনেরো=15,\n"
-    "বিশ=20, পঁচিশ=25, ত্রিশ=30, পঞ্চাশ=50, একশো=100, দুইশো=200, তিনশো=300,\n"
-    "পাঁচশো=500, হাজার=1000. Extract ALL transactions present, even if multiple."
+    "IMPORTANT INSTRUCTIONS:\n"
+    "1. `amount_inr` MUST be the TOTAL amount in INR. If given per unit and quantity (e.g. '50 takar duto' or '20 takai 1 hali'), calculate total: 50 * 2 = 100.\n"
+    "2. Recognize local traditional Bengali measurement units:\n"
+    "   - 'হালি' / 'hali' = 4 items (e.g. eggs, bananas)\n"
+    "   - 'জোড়া' / 'jora' = 2 items\n"
+    "   - 'কুড়ি' / 'kuri' = 20 items\n"
+    "   - 'মণ' / 'mon' = 40 kg\n"
+    "   - 'সের' / 'ser' = 1 kg\n"
+    "   - 'পোয়া' / 'poya' = 250 g\n"
+    "   - 'বস্তা' / 'bosta' = 1 sack (50 kg)\n"
+    "   - 'আঁটি' / 'aati' = 1 bundle (leafy greens, straw)\n"
+    "   - 'কাঠা' / 'katha', 'বিঘা' / 'bigha' = land units\n"
+    "3. Understand colloquial quantity words:\n"
+    "   - duto/দুটো=2, tinte/তিনটে=3, charte/চারটে=4, pachta/পাঁচটা=5, dosta/দশটা=10, half/হাফ=0.5, der/দেড়=1.5, arai/আড়াই=2.5.\n"
+    "4. Bengali number words to numbers:\n"
+    "   - এক=1, দুই=2, তিন=3, চার=4, পাঁচ=5, ছয়=6, সাত=7, আট=8, নয়=9, দশ=10,\n"
+    "   - পনেরো=15, বিশ/কুড়ি=20, পঁচিশ=25, ত্রিশ=30, চল্লিশ=40, পঞ্চাশ=50, ষাট=60, সত্তর=70, আশি=80, নব্বই=90,\n"
+    "   - একশো/একশ=100, দেড়শো=150, দুইশো=200, আড়াইশো=250, তিনশো=300, চারশো=400, পাঁচশো=500, হাজার=1000.\n"
+    "Extract ALL transactions present, even if multiple."
 )
 
 BASE_CONFIDENCE_FLOOR = 0.80
@@ -75,38 +90,100 @@ def _strip_json_fences(text: str) -> str:
 
 def _extract_multi_ledger_fallback(transcript: str) -> dict:
     txs = []
+    text_lower = transcript.lower()
     
-    if "dhar diyechi" in transcript.lower() or "dhar dilam" in transcript.lower() or "ধার দিয়েছি" in transcript or "ধার দিলাম" in transcript:
-        num_match = re.search(r'\d+', transcript)
-        amt = int(num_match.group()) if num_match else 500
-        txs.append({"type": "LEND", "amount_inr": amt, "item_bengali": "ধার দেওয়া"})
+    # Map Bengali digits to English digits
+    bn_digits = {'০':'0', '১':'1', '২':'2', '৩':'3', '৪':'4', '৫':'5', '৬':'6', '৭':'7', '৮':'8', '৯':'9'}
+    norm_text = transcript
+    for bn, en in bn_digits.items():
+        norm_text = norm_text.replace(bn, en)
 
-    elif "dhar diyeche" in transcript.lower() or "dhar nilam" in transcript.lower() or "ধার দিয়েছে" in transcript or "ধার নিলাম" in transcript:
-        num_match = re.search(r'\d+', transcript)
-        amt = int(num_match.group()) if num_match else 500
-        txs.append({"type": "BORROW", "amount_inr": amt, "item_bengali": "ধার নেওয়া"})
+    # Convert Bengali number words if present
+    word_num_map = {
+        "হাজার": 1000, "পাঁচশো": 500, "চারশো": 400, "তিনশো": 300, "আড়াইশো": 250,
+        "দুইশো": 200, "দেড়শো": 150, "একশো": 100, "একশ": 100, "পঞ্চাশ": 50,
+        "চল্লিশ": 40, "ত্রিশ": 30, "পঁচিশ": 25, "বিশ": 20, "পনেরো": 15, "দশ": 10
+    }
+    word_amt = 0
+    for w, val in word_num_map.items():
+        if w in norm_text:
+            word_amt = val
+            break
 
-    if "saree" in transcript.lower() or "শাড়ি" in transcript or "শাড়ী" in transcript:
-        num_match = re.search(r'\d+', transcript)
-        amt = int(num_match.group()) if num_match else 300
-        txs.append({"type": "INCOME", "amount_inr": amt, "item_bengali": "শাড়ি বিক্রি"})
+    # Look for digits
+    numbers = [int(n) for n in re.findall(r'\b\d+\b', norm_text)]
+    amount = 0
+    if numbers:
+        amounts = [n for n in numbers if n >= 10]
+        amount = max(amounts) if amounts else numbers[0]
+    elif word_amt > 0:
+        amount = word_amt
 
-    if "৩০০" in transcript or ("300" in transcript and not txs):
-        item = "শাক (কামিন বাউড়ি)" if "শাক" in transcript or "কামিন" in transcript else "শাক"
-        txs.append({"type": "INCOME", "amount_inr": 300, "item_bengali": item})
+    # Determine 8 Transaction Modes
+    if any(k in text_lower for k in ["baki adaye", "baki adai", "dhar ferot", "baki pelam", "ধার ফেরত", "বাকি আদায়", "ফেরত পেলাম"]):
+        tx_type = "RECOVERY"
+    elif any(k in text_lower for k in ["kisti", "কিস্তি", "কিস্তি দিলাম", "ঋণ শোধ", "লোন শোধ"]):
+        tx_type = "KISTI"
+    elif any(k in text_lower for k in ["sanchay", "সঞ্চয়", "চাঁদা", "chanda", "সঞ্চয়"]):
+        tx_type = "SAVINGS"
+    elif any(k in text_lower for k in ["majuri", "mojuri", "মজুরি", "জন", "jon", "জন-খাটা", "kheter kaj"]):
+        tx_type = "WAGES"
+    elif any(k in text_lower for k in ["dhar diyeche", "dhar nilam", "rin nilam", "ধার দিয়েছে", "ধার নিলাম", "ধার নেওয়া", "ঋণ"]):
+        tx_type = "BORROW"
+    elif any(k in text_lower for k in ["dhar diyechi", "dhar dilam", "baki bikri", "ধার দিয়েছি", "ধার দিলাম", "ধার দেওয়া", "বাকিতে বিক্রি"]):
+        tx_type = "LEND"
+    elif any(k in text_lower for k in ["bought", "buy", "buying", "purchase", "kinechi", "khoroch", "kharach", "খরচ", "ব্যয়", "কিনেছি", "কিনলাম", "সার", "বীজ", "তেল"]):
+        tx_type = "EXPENSE"
+    else:
+        tx_type = "INCOME"
 
-    if "৫০" in transcript or "500" in transcript:
-        item = "ধান (রিনা দি)" if "ধান" in transcript or "রিনা" in transcript else "ধান"
-        txs.append({"type": "EXPENSE", "amount_inr": 500, "item_bengali": item})
+    # Determine item & unit
+    item = "পণ্য"
+    unit = None
+    if "hali" in text_lower or "হালি" in norm_text:
+        unit = "হালি"
+    elif "jora" in text_lower or "জোড়া" in norm_text:
+        unit = "জোড়া"
+    elif "mon" in text_lower or "মণ" in norm_text:
+        unit = "মণ"
+    elif "ser" in text_lower or "সের" in norm_text:
+        unit = "সের"
+    elif "bosta" in text_lower or "বস্তা" in norm_text:
+        unit = "বস্তা"
+    elif "aati" in text_lower or "আটি" in norm_text or "আঁটি" in norm_text:
+        unit = "আঁটি"
 
-    if "২০" in transcript or "20" in transcript:
-        item = "বাকি পাওনা (ওয়ালকেদি)" if "ওয়ালকেদি" in transcript or "বাকি" in transcript else "বাকি পাওনা"
-        txs.append({"type": "EXPENSE", "amount_inr": 20, "item_bengali": item})
+    if "rice" in text_lower or "chal" in text_lower or "চাল" in norm_text:
+        item = "চাল"
+    elif "dhan" in text_lower or "ধান" in norm_text:
+        item = "ধান"
+    elif "saree" in text_lower or "shari" in text_lower or "শাড়ি" in norm_text or "শাড়ী" in norm_text:
+        item = "শাড়ি"
+    elif "vegetable" in text_lower or "sobji" in text_lower or "সবজি" in norm_text or "তরকারি" in norm_text:
+        item = "সবজি"
+    elif "shak" in text_lower or "শাক" in norm_text:
+        item = "শাক"
+    elif "machh" in text_lower or "mach" in text_lower or "মাছ" in norm_text:
+        item = "মাছ"
+    elif "dim" in text_lower or "ডিম" in norm_text:
+        item = "ডিম"
+    elif "dudh" in text_lower or "দুধ" in norm_text:
+        item = "দুধ"
+    elif "murgi" in text_lower or "মুরগি" in norm_text:
+        item = "মুরগি"
+    elif "gohona" in text_lower or "গহনা" in norm_text or "হস্তশিল্প" in norm_text:
+        item = "হস্তশিল্প"
+    elif "shar" in text_lower or "সার" in norm_text or "বীজ" in norm_text:
+        item = "কৃষি সার/বীজ"
+    else:
+        item = transcript[:40]
 
-    if not txs:
-        num_match = re.search(r'\d+', transcript)
-        amt = int(num_match.group()) if num_match else 100
-        txs.append({"type": "INCOME", "amount_inr": amt, "item_bengali": "পণ্য বিক্রি"})
+    txs.append({
+        "type": tx_type,
+        "amount_inr": amount if amount > 0 else 100,
+        "item_bengali": item,
+        "unit": unit
+    })
 
     return {
         "transactions": txs,

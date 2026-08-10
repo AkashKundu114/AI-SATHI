@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
-import VoiceTerminal from './components/VoiceTerminal';
-import PdfRagSubChat from './components/PdfRagSubChat';
-import LedgerHub from './components/LedgerHub';
+import ChatInterface from './components/ChatInterface';
+import LedgerDrawer from './components/LedgerDrawer';
 import Auth from './components/Auth';
 
 export default function App() {
-  const [theme, setTheme] = useState('light');
-  const [activeTab, setActiveTab] = useState('chat');
-  
+  const [theme, setTheme] = useState('dark');
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+
   const [userPhone, setUserPhone] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Load auth from localStorage on mount
     const savedPhone = localStorage.getItem('userPhone');
     const savedProfile = localStorage.getItem('userProfile');
-    
+
     if (savedPhone && savedProfile) {
       setUserPhone(savedPhone);
       try {
@@ -60,23 +57,19 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--bg-dark)', color: 'var(--text-main)' }}>
-      {/* Top Navbar */}
-      <Navbar currentTheme={theme} toggleTheme={toggleTheme} userProfile={userProfile} activeTab={activeTab} onLogout={handleLogout} />
+      <Navbar
+        currentTheme={theme}
+        toggleTheme={toggleTheme}
+        userProfile={userProfile}
+        onLogout={handleLogout}
+        onToggleLedger={() => setLedgerOpen((prev) => !prev)}
+      />
 
-      {/* Main Workspace */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Navigation Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userProfile={userProfile} onLogout={handleLogout} />
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <ChatInterface userProfile={userProfile} />
+      </main>
 
-        {/* Content View Container */}
-        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', backgroundColor: 'var(--bg-dark)' }}>
-          <div style={{ maxWidth: '1000px', margin: '0 auto', height: '100%' }}>
-            {activeTab === 'chat' && <VoiceTerminal userProfile={userProfile} />}
-            {activeTab === 'pdf_rag' && <PdfRagSubChat userProfile={userProfile} />}
-            {activeTab === 'ledger' && <LedgerHub userProfile={userProfile} />}
-          </div>
-        </main>
-      </div>
+      <LedgerDrawer isOpen={ledgerOpen} onClose={() => setLedgerOpen(false)} userProfile={userProfile} />
     </div>
   );
 }

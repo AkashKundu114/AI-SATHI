@@ -48,29 +48,34 @@ async def login_user(payload: LoginRequest):
         async with get_db_session() as db:
             user = (await db.execute(select(User).where(User.whatsapp_number == phone))).scalar_one_or_none()
             if not user:
-                user = User(whatsapp_number=phone, name="নতুন ব্যবহারকারী" if phone != "9064349004" else "Admin User")
+                user = User(
+                    whatsapp_number=phone,
+                    name="Admin User" if phone == "9064349004" else "নতুন ব্যবহারকারী",
+                    verification_status="verified",
+                )
                 db.add(user)
                 await db.commit()
-                
-            if user.verification_status != "verified":
+                await db.refresh(user)
+            elif user.verification_status != "verified":
                 user.verification_status = "verified"
-                db.add(user)
+                await db.commit()
+                await db.refresh(user)
                 
             profile = {
                 "id": str(user.id),
-                "phone": user.whatsapp_number,
-                "name": user.name,
+                "phone": user.whatsapp_number or phone,
+                "name": user.name or "Admin User",
                 "shg_name": "Not specified",
-                "district": user.district or "Unknown",
-                "block": user.block or "Unknown",
-                "user_type": user.user_type or "shg_member",
+                "district": getattr(user, "district", None) or "Unknown",
+                "block": getattr(user, "block", None) or "Unknown",
+                "user_type": getattr(user, "user_type", None) or "shg_member",
             }
-            await db.commit()
-            
+
         return {"status": "success", "user": profile}
     except Exception as exc:
+        print(f"LOGIN ERROR: {exc}", flush=True)
         logger.exception("Login error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.post("/chat")
@@ -126,6 +131,192 @@ async def process_chat_message(payload: dict[str, Any]):
         }
 
 
+class ParseRequest(BaseModel):
+    user_phone: str
+    text: str
+
+@router.post("/chat/parse")
+async def parse_ledger_from_text(payload: ParseRequest):
+    """Parse user text to extract ledger entries without saving. Returns structured entries for confirmation."""
+    raw_text = payload.text.strip()
+    if not raw_text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    sanitized = sanitize_text_input(raw_text, max_chars=2000)
+
+    try:
+        parsed_entries = []
+        from services.orchestrator.nodes.ledger_node import _extract_multi_ledger_fallback
+
+        # Try graph extraction with 3s timeout
+        try:
+            import asyncio
+            from services.orchestrator.graph import get_compiled_graph
+            graph = await get_compiled_graph()
+            config = {"configurable": {"thread_id": f"{payload.user_phone}_parse"}}
+
+            state_input = {
+                "whatsapp_number": payload.user_phone,
+                "user_id": payload.user_phone,
+                "is_new_user": False,
+                "onboarding_step": "DONE",
+                "awaiting_confirmation": False,
+                "last_message_type": "text",
+                "raw_input_text": sanitized,
+                "outbound_messages": [],
+            }
+
+            final_state = await asyncio.wait_for(graph.ainvoke(state_input, config=config), timeout=3.0)
+            pending = final_state.get("pending_ledger_entry") or {}
+            txs = pending.get("transactions", []) if isinstance(pending, dict) else []
+
+            for tx in txs:
+                t_type = str(tx.get("type", "INCOME")).lower()
+                parsed_entries.append({
+                    "entry_type": t_type,
+                    "amount": float(tx.get("amount_inr", 0)),
+                    "category": tx.get("item_bengali", "General"),
+                    "note": tx.get("item_bengali", sanitized),
+                    "quantity": tx.get("quantity"),
+                    "unit": tx.get("unit"),
+                })
+        except Exception as exc:
+            logger.info("Graph extraction skipped or timed out (%s), using deterministic fallback", exc)
+
+        # Fallback: If graph returned no parsed entries, run fallback parser
+        if not parsed_entries:
+            fallback_res = _extract_multi_ledger_fallback(sanitized)
+            fb_txs = fallback_res.get("transactions", [])
+            for tx in fb_txs:
+                t_type = str(tx.get("type", "INCOME")).lower()
+                parsed_entries.append({
+                    "entry_type": t_type,
+                    "amount": float(tx.get("amount_inr", 0)),
+                    "category": tx.get("item_bengali", "General"),
+                    "note": tx.get("item_bengali", sanitized),
+                    "quantity": tx.get("quantity"),
+                    "unit": tx.get("unit"),
+                })
+
+        return {
+            "status": "success",
+            "parsed_entries": parsed_entries,
+            "ai_message": "আপনার বার্তা থেকে এই লেনদেন চিহ্নিত করা হয়েছে:" if parsed_entries else "আপনার বার্তা বিশ্লেষণ করা হয়েছে।",
+            "raw_text": sanitized,
+        }
+    except Exception as exc:
+        logger.exception("parse_ledger_from_text error: %s", exc)
+        return {
+            "status": "success",
+            "parsed_entries": [],
+            "ai_message": "লেনদেনের হিসাব প্রক্রিয়া করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার বলুন।",
+            "raw_text": sanitized,
+        }
+
+
+async def _get_or_create_user(db, raw_phone: str):
+    from shared.db.models import User
+    from sqlalchemy import select
+    phone = raw_phone.strip()
+    digits = re.sub(r"[^\d]", "", phone)
+    last10 = digits[-10:] if len(digits) >= 10 else digits
+
+    query = select(User).where(
+        (User.whatsapp_number == phone) |
+        (User.whatsapp_number == f"+{digits}") |
+        (User.whatsapp_number == f"+91{last10}") |
+        (User.whatsapp_number == last10) |
+        (User.whatsapp_number.endswith(last10))
+    )
+    user = (await db.execute(query)).scalars().first()
+
+    if not user:
+        user = User(
+            whatsapp_number=f"+91{last10}" if len(last10) == 10 else phone,
+            name=f"User {last10}",
+            consent_given=True,
+            trust_stage="verified"
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    return user
+
+
+class ConfirmLedgerRequest(BaseModel):
+    phone: str
+    entries: list[dict]
+
+@router.post("/ledger/confirm")
+async def confirm_and_save_ledger(payload: ConfirmLedgerRequest):
+    """Save confirmed ledger entries to the database in bulk."""
+    phone = payload.phone.strip()
+    if not payload.entries:
+        raise HTTPException(status_code=400, detail="No entries to save")
+
+    try:
+        from shared.db.session import get_db_session
+        from shared.db.models import LedgerEntry
+
+        async with get_db_session() as db:
+            user = await _get_or_create_user(db, phone)
+
+            saved_count = 0
+            for entry_data in payload.entries:
+                raw_type = str(entry_data.get("entry_type", "expense")).lower()
+                if any(k in raw_type for k in ["recovery", "adaye", "arai"]):
+                    e_type = "recovery"
+                elif any(k in raw_type for k in ["kisti", "কিস্তি"]):
+                    e_type = "kisti"
+                elif any(k in raw_type for k in ["savings", "sanchay", "সঞ্চয়"]):
+                    e_type = "savings"
+                elif any(k in raw_type for k in ["wages", "majuri", "mojuri", "মজুরি"]):
+                    e_type = "wages"
+                elif any(k in raw_type for k in ["borrow", "rin"]):
+                    e_type = "borrow"
+                elif any(k in raw_type for k in ["lend", "dhar"]):
+                    e_type = "lend"
+                elif any(k in raw_type for k in ["income", "joma", "bikri"]):
+                    e_type = "income"
+                else:
+                    e_type = "expense"
+                
+                try:
+                    amt = float(entry_data.get("amount") or entry_data.get("amount_inr") or 0)
+                except (ValueError, TypeError):
+                    amt = 0.0
+
+                qty = None
+                raw_qty = entry_data.get("quantity")
+                if raw_qty is not None:
+                    try:
+                        qty = float(raw_qty)
+                    except (ValueError, TypeError):
+                        qty = None
+
+                entry = LedgerEntry(
+                    user_id=user.id,
+                    entry_type=e_type[:10],
+                    amount_inr=amt,
+                    category=str(entry_data.get("category") or "General")[:100],
+                    description_bengali=str(entry_data.get("note") or ""),
+                    quantity=qty,
+                    unit=str(entry_data.get("unit"))[:20] if entry_data.get("unit") else None,
+                    extracted_by="web_confirmed"[:20],
+                )
+                db.add(entry)
+                saved_count += 1
+            await db.commit()
+
+        return {"status": "success", "message": f"{saved_count} entries saved successfully", "saved_count": saved_count}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("confirm_and_save_ledger error: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.post("/voice")
 async def process_voice_message(
     user_phone: str = Form("+919876543210"),
@@ -136,13 +327,18 @@ async def process_voice_message(
         transcript = ""
         try:
             from services.voice_gateway.provider_cascade import transcribe
-            stt_result = await transcribe(content)
+            stt_result = await transcribe(content, language="bn")
             transcript = stt_result.get("transcript", "").strip()
         except Exception as exc:
             logger.warning("Voice STT error: %s", exc)
 
         if not transcript:
-            transcript = "Will I make more profit if I sell goods today?"
+            return {
+                "status": "success",
+                "transcript": "",
+                "messages": [{"type": "text", "body": "ভয়েস রেকর্ডটি ঠিকমত বোঝা যায়নি। অনুগ্রহ করে একটু স্পষ্ট করে আবার বলুন। (Could not transcribe voice note. Please speak clearly again.)"}],
+                "trace": ["voice_gateway:stt_empty"],
+            }
 
         from services.orchestrator.graph import get_compiled_graph
         graph = await get_compiled_graph()
@@ -288,18 +484,13 @@ class LedgerEntryCreate(BaseModel):
 
 @router.get("/ledger")
 async def get_ledger_entries(phone: str):
-    if not re.match(r"^\+?[0-9]{10,14}$", phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
-        
     try:
         from shared.db.session import get_db_session
-        from shared.db.models import User, LedgerEntry
+        from shared.db.models import LedgerEntry
         from sqlalchemy import select
         
         async with get_db_session() as db:
-            user = (await db.execute(select(User).where(User.whatsapp_number == phone))).scalar_one_or_none()
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
+            user = await _get_or_create_user(db, phone)
                 
             entries_query = select(LedgerEntry).where(LedgerEntry.user_id == user.id).order_by(LedgerEntry.entry_date.desc())
             entries = (await db.execute(entries_query)).scalars().all()
@@ -332,27 +523,21 @@ async def get_ledger_entries(phone: str):
 @router.post("/ledger")
 async def add_ledger_entry(payload: LedgerEntryCreate):
     phone = payload.phone.strip()
-    if not re.match(r"^\+?[0-9]{10,14}$", phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
-        
     try:
         from shared.db.session import get_db_session
-        from shared.db.models import User, LedgerEntry
-        from sqlalchemy import select
+        from shared.db.models import LedgerEntry
         
         async with get_db_session() as db:
-            user = (await db.execute(select(User).where(User.whatsapp_number == phone))).scalar_one_or_none()
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
+            user = await _get_or_create_user(db, phone)
                 
             entry = LedgerEntry(
                 user_id=user.id,
-                entry_type=payload.entry_type,
+                entry_type=payload.entry_type[:10],
                 amount_inr=payload.amount,
-                category=payload.category,
+                category=str(payload.category or "General")[:100],
                 description_bengali=payload.note,
                 quantity=payload.quantity,
-                unit=payload.unit,
+                unit=payload.unit[:20] if payload.unit else None,
                 extracted_by="web_platform"
             )
             db.add(entry)

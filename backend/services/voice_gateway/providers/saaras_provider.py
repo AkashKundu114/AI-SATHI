@@ -22,10 +22,14 @@ async def transcribe(audio_bytes: bytes, language: str = "bn", prompt_hint: str 
             "with_diacritics": "true",
             "prompt": prompt_hint or DOMAIN_PROMPT_HINT,
         }
+        is_webm = audio_bytes.startswith(b"\x1a\x45\xdf\xa3") or b"webm" in audio_bytes[:100].lower()
+        filename = "audio.webm" if is_webm else "audio.wav"
+        mime_type = "audio/webm" if is_webm else "audio/wav"
+
         r = await client.post(
             f"{s.sarvam_base_url}/speech-to-text",
             headers={"api-subscription-key": s.sarvam_api_key},
-            files={"file": ("audio.wav", audio_bytes, "audio/wav")},
+            files={"file": (filename, audio_bytes, mime_type)},
             data=data_payload,
         )
         r.raise_for_status()

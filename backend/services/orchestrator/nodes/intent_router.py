@@ -9,12 +9,31 @@ from services.orchestrator.model_router import (
     ModelUnavailableError,
 )
 
-FINANCIAL_KEYWORDS = {"bikri", "বিক্রি", "kharach", "খরচ", "hisab", "হিসাব", "taka", "টাকা", "labh", "লাভ", "dhar", "ধার", "baki", "বাকি", "dewa", "দেওয়া", "newa", "নেওয়া", "nilam", "নিলাম", "dilam", "দিলাম", "niyeche", "নিয়েছে", "diyeche", "দিয়েছে", "kinechi", "কিনেছি"}
-REPORT_KEYWORDS = {"report", "রিপোর্ট", "maaser hisab", "মাসের হিসাব"}
+FINANCIAL_KEYWORDS = {
+    # Income & Sales
+    "bikri", "bikrii", "bikrir", "bikrih", "বিক্রি", "বিক্রির", "বিক্রি করলাম",
+    "sold", "sell", "selling", "sale", "labh", "লাভ", "aay", "আয়", "jama", "জমা",
+    "pela", "পেলাম", "pelam", "pabona", "পাবো", "pawa", "পাওয়া", "nogod", "নগদ",
+    # Expenses & Buying
+    "bought", "buy", "buying", "purchase", "kharach", "khoroch", "খরচ", "ব্যয়", "byay",
+    "kinechi", "কিনেছি", "kinlam", "কিনলাম", "dilam", "দিলাম", "diyechi", "দিয়েছি", "dilum",
+    "suud", "সুদ", "kisti", "কিস্তি", "bhortuki", "ভর্তুকি", "anudaan", "অনুদানে",
+    # Debt, Loan, SHG, Ledger & Accounts
+    "dhar", "ধার", "baki", "বাকী", "বাকি", "dena", "দেনা", "powna", "পাওনা", "udhar", "উধার",
+    "rin", "ঋণ", "loan", "sanchay", "সঞ্চয়", "samity", "সমিতি", "khatian", "খতিয়ান",
+    "mohajon", "মহাজন", "chalan", "চালান", "bokeya", "বকেয়া", "poisa", "পয়সা", "poisha",
+    "hisaab", "hisab", "হিসাব", "হিসাবে", "khata", "খাতা", "tule", "তুলে", "rakhun", "রাখুন",
+    "entry", "এন্ট্রি", "ledger", "লেজার", "boi", "বই", "lenden", "লেনদেন",
+    # Currency & Units
+    "taka", "takai", "takar", "টাকা", "টাকায়", "টাকার", "rs", "rs.", "rupee", "rupees", "inr", "₹",
+    "mon", "মণ", "ser", "সের", "poya", "পোয়া", "hali", "হালি", "jora", "জোড়া", "kuri", "কুড়ি",
+    "bosta", "বস্তা", "aati", "আটি", "আঁটি", "bigha", "বিঘা", "katha", "কাঠা"
+}
+REPORT_KEYWORDS = {"report", "রিপোর্ট", "maaser hisab", "মাসের হিসাব", "সারসংক্ষেপ", "hisab nikesh", "হিসাব নিকাশ"}
 UPGRADE_KEYWORDS = {"upgrade", "আপগ্রেড", "premium", "প্রিমিয়াম", "plan", "প্ল্যান"}
-NEGOTIATION_KEYWORDS = {"দরদাম", "dordam"}
-MARKET_KEYWORDS = {"কি বানাবো", "ki banabo", "market", "বাজার", "bajar"}
-PRICING_KEYWORDS = {"দাম", "dam", "pricing"}
+NEGOTIATION_KEYWORDS = {"দরদাম", "dordam", "bargain", "দামাদামি"}
+MARKET_KEYWORDS = {"কি বানাবো", "ki banabo", "market", "বাজার", "bajar", "haat", "হাট", "কৈ মাছ", "সবজি মান্ডি"}
+PRICING_KEYWORDS = {"দাম", "dam", "pricing", "দর", "রেট", "rate"}
 
 INTENT_CLASSIFY_SYSTEM = (
     "তুমি AI-সাথীর ইনটেন্ট ক্লাসিফায়ার।\n"
