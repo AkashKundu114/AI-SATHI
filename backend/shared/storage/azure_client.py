@@ -46,3 +46,29 @@ async def upload_azure_blob(container_name: str, blob_name: str, data: bytes, co
     except Exception as exc:
         logger.exception("upload_azure_blob error for %s/%s: %s", container_name, blob_name, exc)
         return None
+
+def generate_blob_sas_url(container_name: str, blob_name: str, expiry_hours: int = 1) -> str | None:
+    """Generate a time-limited, read-only SAS URL for a blob."""
+    service = get_azure_blob_service()
+    if not service:
+        return None
+        
+    try:
+        from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+        from datetime import datetime, timedelta, timezone
+        
+        blob_client = service.get_blob_client(container=container_name, blob=blob_name)
+        
+        sas_token = generate_blob_sas(
+            account_name=service.account_name,
+            container_name=container_name,
+            blob_name=blob_name,
+            account_key=service.credential.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
+        )
+        
+        return f"{blob_client.url}?{sas_token}"
+    except Exception as exc:
+        logger.exception("generate_blob_sas_url error for %s/%s: %s", container_name, blob_name, exc)
+        return None

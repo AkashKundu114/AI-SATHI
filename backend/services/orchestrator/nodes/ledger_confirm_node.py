@@ -166,7 +166,18 @@ async def _save(state: ConversationState, pending: dict) -> dict:
                 else:
                     total_expense += amt
             await db.commit()
-    except Exception:
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            from sqlalchemy.exc import SQLAlchemyError
+            if isinstance(exc, SQLAlchemyError):
+                logger.error("Database error saving ledger entry: %s", exc)
+            else:
+                logger.exception("Unexpected error saving ledger entry: %s", exc)
+        except ImportError:
+            logger.exception("Error saving ledger entry: %s", exc)
+            
         return _reset_with_message(
             "হিসাব রাখতে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।",
             trace="ledger_confirm_node:db_commit_failed",

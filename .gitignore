@@ -1,41 +1,102 @@
+# Environments
 .env
 .env.*
 !.env.example
-*.pem
-*.key
-secrets/
-
-__pycache__/
-*.py[cod]
-*.egg-info/
 .venv/
 venv/
 env/
+ENV/
 
-archive/
+# Secrets
+*.pem
+*.key
+secrets/
+credentials.json
 
-frontend/node_modules/
-frontend/package-lock.json
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
+# Testing
 .pytest_cache/
+.coverage
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 .ruff_cache/
 .mypy_cache/
-.coverage
 
-celerybeat-schedule
-celerybeat.pid
+# Databases & Cache
+*.sqlite3
+*.db
 *.rdb
-
 pgdata/
 redisdata/
-*.sqlite3
+caddy_data/
+caddy_config/
 
+# JS / Frontend
+frontend/node_modules/
+frontend/npm-debug.log
+frontend/yarn-error.log
+frontend/dist/
+frontend/build/
+
+# IDE / OS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
 Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+.gemini/
+
+# Logs
 *.log
 logs/
 
-.gemini/
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Archive
+archive/

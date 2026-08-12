@@ -1,17 +1,42 @@
 from __future__ import annotations
 
+import os
+import jwt
 import logging
 import random
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from typing import Any, Optional
+
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Header
+from sqlalchemy.exc import SQLAlchemyError
 
 from shared.security.input_sanitizer import sanitize_text_input
 
 logger = logging.getLogger("api_router")
 
 router = APIRouter(prefix="/api/v1", tags=["Web Platform API"])
+
+def get_current_user_phone(authorization: str = Header(None)) -> str:
+    """
+    Dependency to extract and validate the JWT token from the Authorization header.
+    Returns the user's phone number if the token is valid.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.split(" ")[1]
+    secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
+    try:
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        phone = payload.get("sub")
+        if not phone:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        return phone
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 
 
 from pydantic import BaseModel
@@ -29,22 +54,22 @@ async def request_otp(payload: dict):
 
 
 @router.post("/auth/login")
-async def login_user(payload: LoginRequest):
+async def login_user(payload: LoginRequest) -> dict:
+    """
+    Authenticates a user via username and password.
+    Returns a JWT token on success.
+    """
     username = payload.username.strip()
     password = payload.password.strip()
-    
-    expected_password = "admin"
-    
+    expected_password = os.environ.get("ADMIN_PASSWORD", "admin")
     if password != expected_password:
+        logger.warning(f"Failed login attempt for user: {username}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
-        
     phone = "9064349004" if username == "admin" else username
-    
     try:
         from shared.db.session import get_db_session
         from shared.db.models import User
         from sqlalchemy import select
-        
         async with get_db_session() as db:
             user = (await db.execute(select(User).where(User.whatsapp_number == phone))).scalar_one_or_none()
             if not user:
@@ -60,7 +85,6 @@ async def login_user(payload: LoginRequest):
                 user.verification_status = "verified"
                 await db.commit()
                 await db.refresh(user)
-                
             profile = {
                 "id": str(user.id),
                 "phone": user.whatsapp_number or phone,
@@ -71,16 +95,26 @@ async def login_user(payload: LoginRequest):
                 "user_type": getattr(user, "user_type", None) or "shg_member",
             }
 
-        return {"status": "success", "user": profile}
+        secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
+        token_exp = datetime.now(timezone.utc) + timedelta(days=7)
+        token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
+
+        return {"status": "success", "user": profile, "token": token}
+    except SQLAlchemyError as exc:
+        logger.error("Database error during login: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error occurred.")
     except Exception as exc:
-        print(f"LOGIN ERROR: {exc}", flush=True)
-        logger.exception("Login error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.exception("Unexpected login error: %s", exc)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
 @router.post("/chat")
-async def process_chat_message(payload: dict[str, Any]):
-    user_phone = payload.get("user_phone", "+919876543210")
+async def process_chat_message(payload: dict[str, Any], current_user_phone: str = Depends(get_current_user_phone)) -> dict:
+    """
+    Processes a chat message from the web platform and returns the AI response.
+    Requires JWT authentication.
+    """
+    user_phone = current_user_phone
     raw_text = payload.get("text", "")
     if not raw_text:
         raise HTTPException(status_code=400, detail="Text prompt is required")
@@ -91,7 +125,6 @@ async def process_chat_message(payload: dict[str, Any]):
         from services.orchestrator.graph import get_compiled_graph
         graph = await get_compiled_graph()
         config = {"configurable": {"thread_id": user_phone}}
-        
         state_input = {
             "whatsapp_number": user_phone,
             "user_id": user_phone,
@@ -108,7 +141,6 @@ async def process_chat_message(payload: dict[str, Any]):
         trace = final_state.get("trace", [])
 
         latest_msg = outbound[-1] if outbound else {"type": "text", "body": f"Processed your query: \"{sanitized}\""}
-        
         if latest_msg.get("type") == "text" and latest_msg.get("body"):
             latest_msg["body"] = _format_multi_coherence_response(latest_msg["body"])
 
@@ -136,8 +168,14 @@ class ParseRequest(BaseModel):
     text: str
 
 @router.post("/chat/parse")
-async def parse_ledger_from_text(payload: ParseRequest):
-    """Parse user text to extract ledger entries without saving. Returns structured entries for confirmation."""
+async def parse_ledger_from_text(payload: ParseRequest, current_user_phone: str = Depends(get_current_user_phone)) -> dict:
+    """
+    Parse user text to extract ledger entries without saving. Returns structured entries for confirmation.
+    Requires JWT authentication.
+    """
+    if payload.user_phone != current_user_phone:
+        logger.warning(f"IDOR attempt: Token sub {current_user_phone} tried to act as {payload.user_phone}")
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
     raw_text = payload.text.strip()
     if not raw_text:
         raise HTTPException(status_code=400, detail="Text is required")
@@ -148,7 +186,6 @@ async def parse_ledger_from_text(payload: ParseRequest):
         parsed_entries = []
         from services.orchestrator.nodes.ledger_node import _extract_multi_ledger_fallback
 
-        # Try graph extraction with 3s timeout
         try:
             import asyncio
             from services.orchestrator.graph import get_compiled_graph
@@ -183,7 +220,6 @@ async def parse_ledger_from_text(payload: ParseRequest):
         except Exception as exc:
             logger.info("Graph extraction skipped or timed out (%s), using deterministic fallback", exc)
 
-        # Fallback: If graph returned no parsed entries, run fallback parser
         if not parsed_entries:
             fallback_res = _extract_multi_ledger_fallback(sanitized)
             fb_txs = fallback_res.get("transactions", [])
@@ -249,8 +285,14 @@ class ConfirmLedgerRequest(BaseModel):
     entries: list[dict]
 
 @router.post("/ledger/confirm")
-async def confirm_and_save_ledger(payload: ConfirmLedgerRequest):
-    """Save confirmed ledger entries to the database in bulk."""
+async def confirm_and_save_ledger(payload: ConfirmLedgerRequest, current_user_phone: str = Depends(get_current_user_phone)) -> dict:
+    """
+    Save confirmed ledger entries to the database in bulk.
+    Requires JWT authentication.
+    """
+    if payload.phone != current_user_phone:
+        logger.warning(f"IDOR attempt: Token sub {current_user_phone} tried to act as {payload.phone}")
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
     phone = payload.phone.strip()
     if not payload.entries:
         raise HTTPException(status_code=400, detail="No entries to save")
@@ -281,7 +323,6 @@ async def confirm_and_save_ledger(payload: ConfirmLedgerRequest):
                     e_type = "income"
                 else:
                     e_type = "expense"
-                
                 try:
                     amt = float(entry_data.get("amount") or entry_data.get("amount_inr") or 0)
                 except (ValueError, TypeError):
@@ -312,8 +353,11 @@ async def confirm_and_save_ledger(payload: ConfirmLedgerRequest):
         return {"status": "success", "message": f"{saved_count} entries saved successfully", "saved_count": saved_count}
     except HTTPException:
         raise
+    except SQLAlchemyError as exc:
+        logger.error("Database error in confirm_and_save_ledger: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error occurred.")
     except Exception as exc:
-        logger.exception("confirm_and_save_ledger error: %s", exc)
+        logger.exception("confirm_and_save_ledger unexpected error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -361,7 +405,6 @@ async def process_voice_message(
         outbound = final_state.get("outbound_messages", [])
 
         latest_msg = outbound[-1] if outbound else {"type": "text", "body": f"✅ Voice note recorded: \"{transcript}\"\n\nLedger and market advice updated."}
-        
         if latest_msg.get("type") == "text" and latest_msg.get("body"):
             latest_msg["body"] = _format_multi_coherence_response(latest_msg["body"])
 
@@ -427,7 +470,6 @@ async def upload_attachment_to_azure(
         content = await file.read()
         from shared.storage.azure_client import upload_azure_blob
         blob_url = await upload_azure_blob(container, file.filename or "attachment.bin", content, file.content_type or "application/octet-stream")
-        
         if file.filename.endswith(".pdf") and container == "pdf-docs" and user_phone:
             import io
             from pypdf import PdfReader
@@ -436,11 +478,9 @@ async def upload_attachment_to_azure(
                 text = ""
                 for page in reader.pages:
                     text += page.extract_text() or ""
-                
                 from shared.db.session import get_db_session
                 from shared.db.models import UploadedDocument
                 from sqlalchemy.dialects.postgresql import insert
-                
                 async with get_db_session() as db:
                     stmt = insert(UploadedDocument).values(
                         user_phone=user_phone,
@@ -483,18 +523,22 @@ class LedgerEntryCreate(BaseModel):
     unit: str | None = None
 
 @router.get("/ledger")
-async def get_ledger_entries(phone: str):
+async def get_ledger_entries(phone: str, current_user_phone: str = Depends(get_current_user_phone)) -> dict:
+    """
+    Retrieve ledger entries for a user.
+    Requires JWT authentication.
+    """
+    if phone != current_user_phone:
+        logger.warning(f"IDOR attempt: Token sub {current_user_phone} tried to read ledger for {phone}")
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
     try:
         from shared.db.session import get_db_session
         from shared.db.models import LedgerEntry
         from sqlalchemy import select
-        
         async with get_db_session() as db:
             user = await _get_or_create_user(db, phone)
-                
             entries_query = select(LedgerEntry).where(LedgerEntry.user_id == user.id).order_by(LedgerEntry.entry_date.desc())
             entries = (await db.execute(entries_query)).scalars().all()
-            
             result_entries = []
             for entry in entries:
                 result_entries.append({
@@ -508,28 +552,35 @@ async def get_ledger_entries(phone: str):
                     "unit": entry.unit or "",
                     "is_corrected": entry.is_corrected,
                 })
-            
             return {
                 "status": "success",
                 "entries": result_entries
             }
     except HTTPException:
         raise
+    except SQLAlchemyError as exc:
+        logger.error("Database error in get_ledger_entries: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error occurred.")
     except Exception as exc:
-        logger.exception("Get ledger entries error: %s", exc)
+        logger.exception("Get ledger entries unexpected error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/ledger")
-async def add_ledger_entry(payload: LedgerEntryCreate):
+async def add_ledger_entry(payload: LedgerEntryCreate, current_user_phone: str = Depends(get_current_user_phone)) -> dict:
+    """
+    Add a single ledger entry.
+    Requires JWT authentication.
+    """
+    if payload.phone != current_user_phone:
+        logger.warning(f"IDOR attempt: Token sub {current_user_phone} tried to act as {payload.phone}")
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
     phone = payload.phone.strip()
     try:
         from shared.db.session import get_db_session
         from shared.db.models import LedgerEntry
-        
         async with get_db_session() as db:
             user = await _get_or_create_user(db, phone)
-                
             entry = LedgerEntry(
                 user_id=user.id,
                 entry_type=payload.entry_type[:10],
@@ -542,41 +593,62 @@ async def add_ledger_entry(payload: LedgerEntryCreate):
             )
             db.add(entry)
             await db.commit()
-            
         return {"status": "success", "message": "Ledger entry added successfully"}
     except HTTPException:
         raise
+    except SQLAlchemyError as exc:
+        logger.error("Database error in add_ledger_entry: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error occurred.")
     except Exception as exc:
-        logger.exception("Add ledger entry error: %s", exc)
+        logger.exception("Add ledger entry unexpected error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/storage/documents")
-async def list_user_documents(phone: str):
+async def list_user_documents(phone: str, current_user_phone: str = Depends(get_current_user_phone)) -> dict:
+    """
+    List uploaded documents for a user.
+    Requires JWT authentication.
+    """
+    if phone != current_user_phone:
+        logger.warning(f"IDOR attempt: Token sub {current_user_phone} tried to list docs for {phone}")
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
     if not re.match(r"^\+?[0-9]{10,14}$", phone):
         raise HTTPException(status_code=400, detail="Invalid phone number format")
-        
     try:
         from shared.db.session import get_db_session
         from shared.db.models import UploadedDocument
         from sqlalchemy import select
-        
         async with get_db_session() as db:
             docs = (await db.execute(select(UploadedDocument).where(UploadedDocument.user_phone == phone))).scalars().all()
-            
             result = []
             for doc in docs:
+                sas_url = doc.blob_url
+                if doc.blob_url and "blob.core.windows.net" in doc.blob_url:
+                    parts = doc.blob_url.split("blob.core.windows.net/")
+                    if len(parts) == 2:
+                        path_parts = parts[1].split("/", 1)
+                        if len(path_parts) == 2:
+                            from shared.storage.azure_client import generate_blob_sas_url
+                            maybe_sas = generate_blob_sas_url(path_parts[0], path_parts[1])
+                            if maybe_sas:
+                                sas_url = maybe_sas
                 result.append({
                     "id": str(doc.id),
                     "name": doc.filename,
                     "title": doc.title or doc.filename,
                     "size": f"{((doc.size_bytes or 0) / 1024 / 1024):.1f} MB" if doc.size_bytes else "Unknown",
                     "chunks": len(doc.text_content.split()) // 200 if doc.text_content else 0,
-                    "azureUrl": doc.blob_url,
+                    "azureUrl": sas_url,
                 })
             return {"status": "success", "documents": result}
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error("Database error in list_user_documents: %s", exc)
+        raise HTTPException(status_code=500, detail="Database error occurred.")
     except Exception as exc:
-        logger.exception("List documents error: %s", exc)
+        logger.exception("List documents unexpected error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

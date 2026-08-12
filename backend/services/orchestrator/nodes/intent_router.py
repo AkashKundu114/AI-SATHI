@@ -10,21 +10,17 @@ from services.orchestrator.model_router import (
 )
 
 FINANCIAL_KEYWORDS = {
-    # Income & Sales
     "bikri", "bikrii", "bikrir", "bikrih", "বিক্রি", "বিক্রির", "বিক্রি করলাম",
     "sold", "sell", "selling", "sale", "labh", "লাভ", "aay", "আয়", "jama", "জমা",
     "pela", "পেলাম", "pelam", "pabona", "পাবো", "pawa", "পাওয়া", "nogod", "নগদ",
-    # Expenses & Buying
     "bought", "buy", "buying", "purchase", "kharach", "khoroch", "খরচ", "ব্যয়", "byay",
     "kinechi", "কিনেছি", "kinlam", "কিনলাম", "dilam", "দিলাম", "diyechi", "দিয়েছি", "dilum",
     "suud", "সুদ", "kisti", "কিস্তি", "bhortuki", "ভর্তুকি", "anudaan", "অনুদানে",
-    # Debt, Loan, SHG, Ledger & Accounts
     "dhar", "ধার", "baki", "বাকী", "বাকি", "dena", "দেনা", "powna", "পাওনা", "udhar", "উধার",
     "rin", "ঋণ", "loan", "sanchay", "সঞ্চয়", "samity", "সমিতি", "khatian", "খতিয়ান",
     "mohajon", "মহাজন", "chalan", "চালান", "bokeya", "বকেয়া", "poisa", "পয়সা", "poisha",
     "hisaab", "hisab", "হিসাব", "হিসাবে", "khata", "খাতা", "tule", "তুলে", "rakhun", "রাখুন",
     "entry", "এন্ট্রি", "ledger", "লেজার", "boi", "বই", "lenden", "লেনদেন",
-    # Currency & Units
     "taka", "takai", "takar", "টাকা", "টাকায়", "টাকার", "rs", "rs.", "rupee", "rupees", "inr", "₹",
     "mon", "মণ", "ser", "সের", "poya", "পোয়া", "hali", "হালি", "jora", "জোড়া", "kuri", "কুড়ি",
     "bosta", "বস্তা", "aati", "আটি", "আঁটি", "bigha", "বিঘা", "katha", "কাঠা"

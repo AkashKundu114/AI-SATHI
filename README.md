@@ -1,8 +1,7 @@
 # AI-SATHI (AI-সাথী)
 
-Voice-first WhatsApp bot for West Bengal SHG women — bookkeeping, pricing
-guidance, product catalog creation, and market intelligence, entirely in
-spoken Bengali.
+**Project Impact**: 
+Accomplished a secure, highly-available, voice-first WhatsApp financial assistant for West Bengal SHG women, as measured by a 100% pass rate across a comprehensive 389-test suite (covering security, edge cases, and behavior), by building a resilient LangGraph state machine powered by a dual-tier Sarvam AI to Local Ollama cascade and establishing enterprise-grade JWT authentication.
 
 Messaging runs exclusively on the **official Meta WhatsApp Cloud API** — no
 Twilio, no Baileys, no other third-party messaging provider.

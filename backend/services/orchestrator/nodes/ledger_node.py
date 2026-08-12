@@ -20,14 +20,14 @@ _LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
 _BENGALI_LETTER_RE = re.compile(r"[\u0980-\u09FF]")
 _BANGLISH_LATIN_RATIO_THRESHOLD = 0.35
 
-MAX_TRANSACTIONS_PER_ENTRY = 20  
+MAX_TRANSACTIONS_PER_ENTRY = 20
 
 
 def _looks_code_mixed(text: str) -> bool:
     latin = len(_LATIN_LETTER_RE.findall(text))
     bengali = len(_BENGALI_LETTER_RE.findall(text))
     total_letters = latin + bengali
-    if total_letters < 6:  
+    if total_letters < 6:
         return False
     return (latin / total_letters) >= _BANGLISH_LATIN_RATIO_THRESHOLD
 
@@ -91,14 +91,11 @@ def _strip_json_fences(text: str) -> str:
 def _extract_multi_ledger_fallback(transcript: str) -> dict:
     txs = []
     text_lower = transcript.lower()
-    
-    # Map Bengali digits to English digits
     bn_digits = {'০':'0', '১':'1', '২':'2', '৩':'3', '৪':'4', '৫':'5', '৬':'6', '৭':'7', '৮':'8', '৯':'9'}
     norm_text = transcript
     for bn, en in bn_digits.items():
         norm_text = norm_text.replace(bn, en)
 
-    # Convert Bengali number words if present
     word_num_map = {
         "হাজার": 1000, "পাঁচশো": 500, "চারশো": 400, "তিনশো": 300, "আড়াইশো": 250,
         "দুইশো": 200, "দেড়শো": 150, "একশো": 100, "একশ": 100, "পঞ্চাশ": 50,
@@ -110,7 +107,6 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
             word_amt = val
             break
 
-    # Look for digits
     numbers = [int(n) for n in re.findall(r'\b\d+\b', norm_text)]
     amount = 0
     if numbers:
@@ -119,7 +115,6 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
     elif word_amt > 0:
         amount = word_amt
 
-    # Determine 8 Transaction Modes
     if any(k in text_lower for k in ["baki adaye", "baki adai", "dhar ferot", "baki pelam", "ধার ফেরত", "বাকি আদায়", "ফেরত পেলাম"]):
         tx_type = "RECOVERY"
     elif any(k in text_lower for k in ["kisti", "কিস্তি", "কিস্তি দিলাম", "ঋণ শোধ", "লোন শোধ"]):
@@ -137,7 +132,6 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
     else:
         tx_type = "INCOME"
 
-    # Determine item & unit
     item = "পণ্য"
     unit = None
     if "hali" in text_lower or "হালি" in norm_text:
