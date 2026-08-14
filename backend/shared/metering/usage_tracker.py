@@ -28,7 +28,7 @@ async def get_user_plan_tier(user_id: str) -> str:
             row = (
                 await db.execute(
                     text(
-                        
+                        "SELECT plan_tier, plan_expires FROM users WHERE id = :uid"
                     ),
                     {"uid": user_id},
                 )
@@ -66,7 +66,13 @@ async def check_and_increment_api_usage(
             row = (
                 await db.execute(
                     text(
-                        
+                        """
+                        INSERT INTO api_usage (user_id, provider, month_bucket, current_usage)
+                        VALUES (:uid, :provider, :month, 1)
+                        ON CONFLICT (user_id, provider, month_bucket) 
+                        DO UPDATE SET current_usage = api_usage.current_usage + 1
+                        RETURNING current_usage
+                        """
                     ),
                     {"uid": user_id, "provider": provider, "month": month_bucket},
                 )

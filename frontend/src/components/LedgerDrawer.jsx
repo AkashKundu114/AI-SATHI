@@ -9,10 +9,16 @@ export default function LedgerDrawer({ isOpen, onClose, userProfile }) {
     if (!userProfile?.phone) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/ledger?phone=${encodeURIComponent(userProfile.phone)}`);
+      const token = localStorage.getItem('ai_sathi_token') || '';
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/ledger?phone=${encodeURIComponent(userProfile.phone)}`, { headers });
       const data = await res.json();
       if (data.status === 'success' && data.entries) {
-        setEntries(data.entries);
+        // Normalize entry_type to lowercase so it matches our rendering logic
+        const normalized = data.entries.map(e => ({...e, type: e.type.toLowerCase()}));
+        setEntries(normalized);
       }
     } catch (err) {
       console.error('Error fetching ledger:', err);

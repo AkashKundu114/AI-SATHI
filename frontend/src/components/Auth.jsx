@@ -32,7 +32,7 @@ export default function Auth({ onLogin }) {
       }
 
       if (data.status === 'success' && data.user) {
-        onLogin(data.user);
+        onLogin(data.user, data.token);
       }
     } catch (err) {
       setError(err.message);

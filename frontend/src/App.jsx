@@ -15,14 +15,19 @@ export default function App() {
   useEffect(() => {
     const savedPhone = localStorage.getItem('userPhone');
     const savedProfile = localStorage.getItem('userProfile');
+    const savedToken = localStorage.getItem('ai_sathi_token');
 
-    if (savedPhone && savedProfile) {
+    if (savedPhone && savedProfile && savedToken) {
       setUserPhone(savedPhone);
       try {
         setUserProfile(JSON.parse(savedProfile));
       } catch (e) {
         // bad profile JSON
       }
+    } else {
+      localStorage.removeItem('userPhone');
+      localStorage.removeItem('userProfile');
+      localStorage.removeItem('ai_sathi_token');
     }
     setIsInitializing(false);
   }, []);
@@ -35,11 +40,14 @@ export default function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  const handleLogin = (user) => {
+  const handleLogin = (user, token) => {
     setUserPhone(user.phone);
     setUserProfile(user);
     localStorage.setItem('userPhone', user.phone);
     localStorage.setItem('userProfile', JSON.stringify(user));
+    if (token) {
+      localStorage.setItem('ai_sathi_token', token);
+    }
   };
 
   const handleLogout = () => {
@@ -47,6 +55,7 @@ export default function App() {
     setUserProfile(null);
     localStorage.removeItem('userPhone');
     localStorage.removeItem('userProfile');
+    localStorage.removeItem('ai_sathi_token');
   };
 
   if (isInitializing) return null;

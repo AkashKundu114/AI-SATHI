@@ -128,12 +128,8 @@ async def process_chat_message(payload: dict[str, Any], current_user_phone: str 
         state_input = {
             "whatsapp_number": user_phone,
             "user_id": user_phone,
-            "is_new_user": False,
-            "onboarding_step": "DONE",
-            "awaiting_confirmation": False,
             "last_message_type": "text",
             "raw_input_text": sanitized,
-            "outbound_messages": [],
         }
 
         final_state = await graph.ainvoke(state_input, config=config)
@@ -391,14 +387,10 @@ async def process_voice_message(
         state_input = {
             "whatsapp_number": user_phone,
             "user_id": user_phone,
-            "is_new_user": False,
-            "onboarding_step": "DONE",
-            "awaiting_confirmation": False,
             "last_message_type": "audio",
             "raw_input_transcript": transcript,
             "raw_input_text": transcript,
             "transcript_provider": "sarvam-saaras",
-            "outbound_messages": [],
         }
 
         final_state = await graph.ainvoke(state_input, config=config)

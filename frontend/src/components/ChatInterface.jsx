@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, Send, Check, X, BookOpen, ArrowUpRight, ArrowDownRight, RefreshCw, ChevronDown, ChevronUp, Edit3, HandCoins, Building2, PiggyBank, Receipt, HardHat, TrendingDown, TrendingUp } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, Mic, MicOff, RefreshCw, Send, Trash2 } from 'lucide-react';
 
 /* ─── SHG & Village Life Category Options ───────────────────── */
 const VILLAGE_CATEGORIES = [
@@ -14,171 +14,6 @@ const VILLAGE_CATEGORIES = [
   { label: '📦 অন্যান্য (Others)', value: 'অন্যান্য' },
 ];
 
-/* ─── 8 Rich Village Transaction Modes ──────────────────────── */
-const TRANSACTION_MODES = [
-  { id: 'income', label: '📈 জমা / বিক্রি', icon: ArrowUpRight, styleClass: 'btn-sharp--success' },
-  { id: 'expense', label: '📉 খরচ / ক্রয়', icon: ArrowDownRight, styleClass: 'btn-sharp--danger' },
-  { id: 'lend', label: '🤝 বাকিতে বিক্রি / ধার', icon: HandCoins, styleClass: 'btn-sharp--primary' },
-  { id: 'recovery', label: '📥 বাকি আদায় / ফেরত', icon: TrendingUp, styleClass: 'btn-sharp--success' },
-  { id: 'borrow', label: '🏦 ঋণ নেওয়া (Loan)', icon: Building2, styleClass: 'btn-sharp--accent' },
-  { id: 'kisti', label: '💸 কিস্তি শোধ (Kisti)', icon: Receipt, styleClass: 'btn-sharp--warning' },
-  { id: 'savings', label: '🐷 সঞ্চয় জমা (Savings)', icon: PiggyBank, styleClass: 'btn-sharp--primary' },
-  { id: 'wages', label: '👷 মজুরি (Wages)', icon: HardHat, styleClass: 'btn-sharp--ghost' },
-];
-
-/* ─── Editable Confirmation Card Component ─────────────────── */
-function EditableConfirmationCard({ initialEntries, onConfirm, onReject }) {
-  const [entries, setEntries] = useState(initialEntries || []);
-
-  const updateEntry = (index, field, value) => {
-    setEntries((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const totalAmount = entries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-
-  return (
-    <div className="confirmation-card" style={{ maxWidth: '540px', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
-        <Edit3 size={18} color="var(--color-gold)" />
-        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-          যাচাই ও সম্পাদন করুন (Review & Edit Entry)
-        </span>
-      </div>
-
-      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-        নিচের লেনদেনের সঠিক ধরন বা মোড বেছে নিয়ে **সংরক্ষণ করুন**:
-      </p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '1rem' }}>
-        {entries.map((entry, idx) => (
-          <div key={idx} className="card-sharp" style={{ padding: '0.9rem 1rem', background: 'var(--bg-surface-raised)', border: '1px solid var(--border-strong)' }}>
-            
-            {/* Entry Type Selector Grid (8 Transaction Modes) */}
-            <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>
-              লেনদেনের সঠিক ধরন (Transaction Mode)*
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem', marginBottom: '0.75rem' }}>
-              {TRANSACTION_MODES.map((mode) => {
-                const IconComponent = mode.icon;
-                const isSelected = entry.entry_type === mode.id;
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    className={`btn-sharp btn-sharp--sm ${isSelected ? mode.styleClass : 'btn-sharp--ghost'}`}
-                    onClick={() => updateEntry(idx, 'entry_type', mode.id)}
-                    style={{ fontSize: '0.75rem', padding: '0.4rem 0.5rem', justifyContent: 'flex-start' }}
-                  >
-                    <IconComponent size={13} /> {mode.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Amount & Category Inputs */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.58rem' }}>
-              <div>
-                <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
-                  পরিমাণ (টাকা)*
-                </label>
-                <input
-                  type="number"
-                  value={entry.amount || ''}
-                  onChange={(e) => updateEntry(idx, 'amount', parseFloat(e.target.value) || 0)}
-                  style={{
-                    width: '100%',
-                    padding: '0.45rem 0.65rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-default)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    fontWeight: 700,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
-                  বিভাগ (Category)
-                </label>
-                <select
-                  value={entry.category || 'অন্যান্য'}
-                  onChange={(e) => updateEntry(idx, 'category', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.45rem 0.65rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-default)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.8rem',
-                  }}
-                >
-                  {VILLAGE_CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Note & Description Input */}
-            <div>
-              <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
-                বিবরণ / কথা (Notes/Details)
-              </label>
-              <input
-                type="text"
-                value={entry.note || ''}
-                placeholder="যেমন: রীনা দি কে ৫০ টাকা ধার দেওয়া হলো"
-                onChange={(e) => updateEntry(idx, 'note', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.45rem 0.65rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-default)',
-                  background: 'var(--bg-primary)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.85rem',
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {entries.length > 1 && (
-        <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 700 }}>
-          সর্বমোট পরিমাণ: ₹{totalAmount.toLocaleString('en-IN')}
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '0.65rem' }}>
-        <button
-          type="button"
-          className="btn-sharp btn-sharp--primary"
-          onClick={() => onConfirm(entries)}
-          style={{ flex: 1, padding: '0.65rem 1rem' }}
-        >
-          <Check size={16} /> নিশ্চিত করে সংরক্ষণ করুন
-        </button>
-        <button
-          type="button"
-          className="btn-sharp btn-sharp--ghost"
-          onClick={onReject}
-          style={{ flex: 1, padding: '0.65rem 1rem' }}
-        >
-          <X size={16} /> বাতিল করুন
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Main Chat Interface Component ────────────────────────── */
 export default function ChatInterface({ userProfile }) {
@@ -209,10 +44,16 @@ export default function ChatInterface({ userProfile }) {
     if (!userProfile?.phone) return;
     setLedgerLoading(true);
     try {
-      const res = await fetch(`/api/v1/ledger?phone=${encodeURIComponent(userProfile.phone)}`);
+      const token = localStorage.getItem('ai_sathi_token') || '';
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/ledger?phone=${encodeURIComponent(userProfile.phone)}`, { headers });
       const data = await res.json();
       if (data.status === 'success' && data.entries) {
-        setLedgerEntries(data.entries);
+        // Normalize entry_type to lowercase so it matches our rendering logic
+        const normalized = data.entries.map(e => ({...e, type: e.type.toLowerCase()}));
+        setLedgerEntries(normalized);
       }
     } catch (err) {
       console.error('Error fetching past ledger:', err);
@@ -237,40 +78,42 @@ export default function ChatInterface({ userProfile }) {
     setMessages((prev) => [...prev, { ...msg, id: Date.now() + Math.random(), timestamp: new Date() }]);
   }, []);
 
-  const parseText = async (text) => {
+  const sendTextMessage = async (text) => {
     setIsLoading(true);
     addMessage({ sender: 'user', text, type: 'text' });
 
     try {
-      const res = await fetch('/api/v1/chat/parse', {
+      const token = localStorage.getItem('ai_sathi_token') || '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/v1/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_phone: userProfile.phone, text }),
+        headers,
+        body: JSON.stringify({ user_phone: userProfile?.phone, text }),
       });
       const data = await res.json();
 
-      if (data.parsed_entries && data.parsed_entries.length > 0) {
-        const confirmMsgId = Date.now() + Math.random();
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: confirmMsgId,
-            sender: 'ai',
-            text: data.ai_message || 'আপনার বার্তা থেকে এই লেনদেনগুলো চিহ্নিত করা হয়েছে:',
-            type: 'confirmation',
-            entries: data.parsed_entries,
-            timestamp: new Date(),
-          },
-        ]);
+      if (data.messages && data.messages.length > 0) {
+        addMessage({
+          sender: 'ai',
+          text: data.messages[0].body,
+          type: 'text',
+        });
+        
+        // Auto-refresh ledger if it was saved
+        if (data.messages[0].body.includes('সফলভাবে সংরক্ষণ')) {
+          fetchPastLedger();
+        }
       } else {
         addMessage({
           sender: 'ai',
-          text: data.ai_message || 'আপনার বার্তাটি প্রক্রিয়া করা হয়েছে। কোনো নতুন লেনদেন চিহ্নিত করা যায়নি।',
+          text: 'দুঃখিত, আমি উত্তর দিতে পারলাম না।',
           type: 'text',
         });
       }
     } catch (err) {
-      console.error('Parse error:', err);
+      console.error('Chat error:', err);
       addMessage({
         sender: 'ai',
         text: 'দুঃখিত, কোনো একটি সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
@@ -285,7 +128,7 @@ export default function ChatInterface({ userProfile }) {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
     setInput('');
-    parseText(trimmed);
+    sendTextMessage(trimmed);
   };
 
   const handleKeyDown = (e) => {
@@ -357,30 +200,21 @@ export default function ChatInterface({ userProfile }) {
           return updated;
         });
 
-        const parseRes = await fetch('/api/v1/chat/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_phone: userProfile.phone, text: transcript }),
-        });
-        const parseData = await parseRes.json();
+        if (voiceData.messages && voiceData.messages.length > 0) {
+          addMessage({
+            sender: 'ai',
+            text: voiceData.messages[0].body,
+            type: 'text',
+          });
 
-        if (parseData.parsed_entries && parseData.parsed_entries.length > 0) {
-          const confirmMsgId = Date.now() + Math.random();
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: confirmMsgId,
-              sender: 'ai',
-              text: parseData.ai_message || 'ভয়েস নোট থেকে এই লেনদেন চিহ্নিত করা হয়েছে:',
-              type: 'confirmation',
-              entries: parseData.parsed_entries,
-              timestamp: new Date(),
-            },
-          ]);
+          // Auto-refresh ledger if it was saved
+          if (voiceData.messages[0].body.includes('সফলভাবে সংরক্ষণ')) {
+            fetchPastLedger();
+          }
         } else {
           addMessage({
             sender: 'ai',
-            text: parseData.ai_message || voiceData.messages?.[0]?.body || 'ভয়েস প্রক্রিয়া করা হয়েছে। কোনো লেনদেন পাওয়া যায়নি।',
+            text: 'ভয়েস প্রক্রিয়া করা হয়েছে। কোনো লেনদেন পাওয়া যায়নি।',
             type: 'text',
           });
         }
@@ -403,47 +237,6 @@ export default function ChatInterface({ userProfile }) {
     }
   };
 
-  const handleConfirm = async (msgId, updatedEntries) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/v1/ledger/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: userProfile.phone, entries: updatedEntries }),
-      });
-      const data = await res.json();
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === msgId
-            ? {
-                ...m,
-                type: 'text',
-                text: `✅ ${data.saved_count || updatedEntries.length}টি লেনদেন সফলভাবে আপনার খাতায় স্থায়ীভাবে সংরক্ষণ করা হয়েছে!`,
-                entries: undefined,
-              }
-            : m
-        )
-      );
-
-      fetchPastLedger();
-    } catch (err) {
-      console.error('Confirm error:', err);
-      addMessage({ sender: 'ai', text: 'তথ্য সংরক্ষণ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।', type: 'text' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleReject = (msgId) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { ...m, type: 'text', text: '❌ লেনদেন বাতিল করা হয়েছে। আবার স্পষ্টভাবে বলুন বা লিখুন।', entries: undefined }
-          : m
-      )
-    );
-  };
 
   // Past ledger financial totals
   const totalIncome = ledgerEntries.filter((e) => ['income', 'jama', 'recovery'].includes(e.type)).reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -471,18 +264,7 @@ export default function ChatInterface({ userProfile }) {
         <div className="chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
           {messages.map((msg) => (
             <div key={msg.id} className={`slide-up ${msg.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-              {msg.type === 'confirmation' && msg.entries ? (
-                <>
-                  <div style={{ marginBottom: '0.75rem', fontSize: '0.9rem', fontWeight: 600 }}>{msg.text}</div>
-                  <EditableConfirmationCard
-                    initialEntries={msg.entries}
-                    onConfirm={(modified) => handleConfirm(msg.id, modified)}
-                    onReject={() => handleReject(msg.id)}
-                  />
-                </>
-              ) : (
-                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{msg.text}</div>
-              )}
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{msg.text}</div>
               <div className="bubble-time">
                 {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
               </div>

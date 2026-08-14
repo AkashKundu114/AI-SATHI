@@ -184,10 +184,9 @@ async def _save(state: ConversationState, pending: dict) -> dict:
         )
 
     success_msg = (
-        f"✅ হিসাব রাখা হয়েছে!\n\n"
-        f"এই বার্তায়:\n📈 আয়: ₹{total_income:.0f}\n📉 খরচ: ₹{total_expense:.0f}\n"
-        f"💰 লাভ: ₹{total_income - total_expense:.0f}\n\n"
-        f"মাসের শেষে রিপোর্ট পেতে 'রিপোর্ট' লিখুন।"
+        f"দারুণ! আপনার হিসাবটি সফলভাবে সংরক্ষণ করা হয়েছে।\n\n"
+        f"আপনার এই এন্ট্রিতে মোট আয় হয়েছে ₹{total_income:.0f} এবং খরচ হয়েছে ₹{total_expense:.0f}। "
+        f"মাসের শেষে রিপোর্ট দেখতে চাইলে শুধু 'রিপোর্ট' লিখুন বা বলুন।"
     )
     return {
         "pending_ledger_entry": None,

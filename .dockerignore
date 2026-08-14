@@ -56,7 +56,6 @@ MANIFEST
 frontend/node_modules/
 frontend/npm-debug.log
 frontend/yarn-error.log
-frontend/dist/
 frontend/build/
 
 # Databases & Cache

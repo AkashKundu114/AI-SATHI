@@ -107,7 +107,7 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
             word_amt = val
             break
 
-    numbers = [int(n) for n in re.findall(r'\b\d+\b', norm_text)]
+    numbers = [int(n) for n in re.findall(r'\d+', norm_text)]
     amount = 0
     if numbers:
         amounts = [n for n in numbers if n >= 10]
@@ -209,14 +209,8 @@ async def ledger_extract_node(state: ConversationState) -> dict:
                 "outbound_messages": [{"type": "text", "body": CLARIFICATION_MESSAGE}],
                 "trace": ["ledger_extract_node:malformed_json"],
             }
-    except ModelUnavailableError:
-        return {
-            "pending_ledger_entry": None,
-            "awaiting_confirmation": False,
-            "outbound_messages": [{"type": "text", "body": MODEL_DOWN_MESSAGE}],
-            "trace": ["ledger_extract_node:model_unavailable"],
-        }
-    except Exception:
+    except (ModelUnavailableError, Exception) as exc:
+        logger.warning("Model extraction failed (%s), using deterministic fallback", exc)
         parsed = _extract_multi_ledger_fallback(transcript)
         model_used = "deterministic_fallback"
 
@@ -290,34 +284,33 @@ def _confirmation_lines(pending: dict) -> tuple[str, str, str]:
         amt = tx.get("amount_inr", 0)
         amt_bn = to_bengali_digits(amt)
         tx_type = tx.get("type", "INCOME")
+        item = tx.get('item_bengali', '')
         if tx_type == "INCOME":
             total_income += amt
-            income_lines.append(f"• {tx.get('item_bengali', '')}: ₹{amt_bn} (আয়)")
+            income_lines.append(f"{item}-এর জন্য ₹{amt_bn} আয়")
         elif tx_type == "EXPENSE":
             total_expense += amt
-            expense_lines.append(f"• {tx.get('item_bengali', '')}: ₹{amt_bn} (খরচ/বাকি)")
+            expense_lines.append(f"{item}-এর জন্য ₹{amt_bn} খরচ")
         elif tx_type == "LEND":
             total_expense += amt
-            expense_lines.append(f"• {tx.get('item_bengali', '')}: ₹{amt_bn} (ধার দেওয়া)")
+            expense_lines.append(f"{item}-কে ₹{amt_bn} ধার দেওয়া হয়েছে")
         elif tx_type == "BORROW":
             total_income += amt
-            income_lines.append(f"• {tx.get('item_bengali', '')}: ₹{amt_bn} (ধার নেওয়া)")
+            income_lines.append(f"{item}-এর কাছ থেকে ₹{amt_bn} ধার নেওয়া হয়েছে")
         else:
-            expense_lines.append(f"• {tx.get('item_bengali', '')}: ₹{amt_bn} (অন্যান্য)")
+            expense_lines.append(f"{item}-এর জন্য ₹{amt_bn} (অন্যান্য)")
     net_profit = total_income - total_expense
-    net_line = f"মোট জমা: ₹{to_bengali_digits(total_income)} | বাকির পরিমাণ/খরচ: ₹{to_bengali_digits(total_expense)} | লাভ: ₹{to_bengali_digits(net_profit)}"
-    return "\n".join(income_lines), "\n".join(expense_lines), net_line
+    return "\n".join(income_lines), "\n".join(expense_lines), ""
 
 
 def _build_confirmation_text(pending: dict) -> str:
-    income_lines, expense_lines, net_line = _confirmation_lines(pending)
-    lines = ["বিল ও খাতা হিসাব:"]
+    income_lines, expense_lines, _ = _confirmation_lines(pending)
+    lines = ["আমি আপনার হিসাবটি গুছিয়ে নিয়েছি। আপনি কি নিশ্চিত করতে চান যে:"]
     if income_lines:
         lines.append(income_lines)
     if expense_lines:
         lines.append(expense_lines)
-    lines.append(f"\n📊 {net_line}")
-    lines.append("ঠিক আছে?")
+    lines.append("\nএই হিসাবটি কি ঠিক আছে? (হ্যাঁ/না)")
     return "\n".join(lines)
 
 
