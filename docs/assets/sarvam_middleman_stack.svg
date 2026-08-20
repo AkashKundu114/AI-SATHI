@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" width="100%" height="100%" style="background:#090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#6b21a8"/>
+    </linearGradient>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#151d2e"/>
+      <stop offset="100%" stop-color="#0f1523"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(60, 35)">
+    <rect x="0" y="0" width="38" height="38" rx="8" fill="url(#purpleGrad)"/>
+    <text x="19" y="26" fill="#ffffff" font-weight="bold" font-size="20" text-anchor="middle">সার্ব</text>
+    <text x="50" y="24" fill="#ffffff" font-weight="700" font-size="22">SARVAM AI MIDDLEMAN STACK</text>
+    <text x="50" y="44" fill="#94a3b8" font-size="13">Production Model Mappings &amp; Operational Configurations (TTS / Bulbul Excluded)</text>
+  </g>
+
+  <!-- 6 Model Cards in 2x3 Grid -->
+  <g transform="translate(60, 100)">
+    <!-- 1. Saaras v4 -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="460" height="160" rx="12" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <text x="20" y="32" fill="#c084fc" font-size="15" font-weight="700">🎤 Speech-to-Text: Saaras v4</text>
+      <text x="20" y="54" fill="#38bdf8" font-size="12" font-weight="600">Model: saaras:v4 (Cascade Fallback: saaras:v3)</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="11">• Parameters: mode='verbatim', language_code='bn-IN', sample_rate=16000</text>
+      <text x="20" y="100" fill="#e2e8f0" font-size="11">• Audio Formats: WebM, OGG, WAV, MP3 with automatic dialect recognition</text>
+      <text x="20" y="120" fill="#e2e8f0" font-size="11">• Accuracy: ≥94% WER on Rarhi, Barendri, and Haor regional variants</text>
+    </g>
+
+    <!-- 2. Mayura v1 -->
+    <g transform="translate(500, 0)">
+      <rect x="0" y="0" width="460" height="160" rx="12" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <text x="20" y="32" fill="#c084fc" font-size="15" font-weight="700">🌐 Translation: Mayura v1</text>
+      <text x="20" y="54" fill="#38bdf8" font-size="12" font-weight="600">Model: mayura:v1</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="11">• Parameters: mode='modern-colloquial', numerals_format='international'</text>
+      <text x="20" y="100" fill="#e2e8f0" font-size="11">• Normalizes Banglish slang &amp; dialect terms (e.g. sorser tel -> সর্ষের তেল)</text>
+      <text x="20" y="120" fill="#e2e8f0" font-size="11">• Cleans phonetic English distortions before LLM extraction</text>
+    </g>
+
+    <!-- 3. Sarvam 105B -->
+    <g transform="translate(0, 185)">
+      <rect x="0" y="0" width="460" height="160" rx="12" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <text x="20" y="32" fill="#c084fc" font-size="15" font-weight="700">🧠 Financial Reasoning: Sarvam 105B</text>
+      <text x="20" y="54" fill="#38bdf8" font-size="12" font-weight="600">Model: sarvam-105b</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="11">• Parameters: 128K context window, always-on reasoning, prompt caching</text>
+      <text x="20" y="100" fill="#e2e8f0" font-size="11">• Extracts 8 distinct rural transaction types (Sales, Expense, Debt, Kisti)</text>
+      <text x="20" y="120" fill="#e2e8f0" font-size="11">• Calculates net profit/loss, quantities, units (hali, jora, bosta, mon)</text>
+    </g>
+
+    <!-- 4. Sarvam 105B Conversations -->
+    <g transform="translate(500, 185)">
+      <rect x="0" y="0" width="460" height="160" rx="12" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <text x="20" y="32" fill="#c084fc" font-size="15" font-weight="700">💬 Dialogue Agent: Sarvam 105B Conversations</text>
+      <text x="20" y="54" fill="#38bdf8" font-size="12" font-weight="600">Model: sarvam-105b-conversations</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="11">• Parameters: Dialogue-tuned conversational model</text>
+      <text x="20" y="100" fill="#e2e8f0" font-size="11">• Engages in empathetic Bengali greetings, support, and business guidance</text>
+      <text x="20" y="120" fill="#e2e8f0" font-size="11">• Strict conversational separation: zero writes to the financial ledger database</text>
+    </g>
+
+    <!-- 5. Sarvam Parse -->
+    <g transform="translate(0, 370)">
+      <rect x="0" y="0" width="460" height="160" rx="12" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <text x="20" y="32" fill="#c084fc" font-size="15" font-weight="700">📑 Document Intelligence: Sarvam Parse</text>
+      <text x="20" y="54" fill="#38bdf8" font-size="12" font-weight="600">Endpoint: https://api.sarvam.ai/doc-ai/v1/job/digitise</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="11">• Asynchronous document digitization pipeline with polling worker</text>
+      <text x="20" y="100" fill="#e2e8f0" font-size="11">• Layout-aware OCR for multi-page receipts, invoices, and bank passbooks</text>
+      <text x="20" y="120" fill="#e2e8f0" font-size="11">• Exports structured markdown tables and digit metrics</text>
+    </g>
+
+    <!-- 6. Sarvam Vision -->
+    <g transform="translate(500, 370)">
+      <rect x="0" y="0" width="460" height="160" rx="12" fill="url(#cardBg)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <text x="20" y="32" fill="#c084fc" font-size="15" font-weight="700">👁️ Visual Inspection: Sarvam Vision</text>
+      <text x="20" y="54" fill="#38bdf8" font-size="12" font-weight="600">Model: Vision (sarvam-vision)</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="11">• Multi-modal visual analysis of rural handicrafts &amp; products</text>
+      <text x="20" y="100" fill="#e2e8f0" font-size="11">• Generates marketing titles, descriptions, and catalog captions</text>
+      <text x="20" y="120" fill="#e2e8f0" font-size="11">• Background segmentation &amp; social media advertising posters</text>
+    </g>
+  </g>
+</svg>

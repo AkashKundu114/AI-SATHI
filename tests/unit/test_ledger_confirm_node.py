@@ -124,14 +124,23 @@ async def test_db_commit_failure_resets_with_friendly_message(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_negative_reply_triggers_correction_flow(monkeypatch):
+async def test_negative_reply_discards_entry():
+    state = {"raw_input_text": "না", "pending_ledger_entry": _PENDING}
+    result = await node_module.ledger_confirm_node(state)
+    assert result["pending_ledger_entry"] is None
+    assert "বাদ দেওয়া হলো" in result["outbound_messages"][0]["body"]
+    assert "declined_by_user" in result["trace"][0]
+
+
+@pytest.mark.asyncio
+async def test_negative_with_digits_triggers_correction_flow(monkeypatch):
     async def _fake(**kwargs):
         return {"text": json.dumps({"transactions": [{"type": "INCOME", "amount_inr": 400, "item_bengali": "পাপড়"}], "confidence": 0.9}),
                 "model_used": "sarvam-standard", "escalated": False}
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 
-    state = {"raw_input_text": "না", "pending_ledger_entry": _PENDING}
+    state = {"raw_input_text": "না, ৪০০ টাকা ছিল", "pending_ledger_entry": _PENDING}
     result = await node_module.ledger_confirm_node(state)
     assert result["pending_ledger_entry"]["transactions"][0]["amount_inr"] == 400
     assert result["awaiting_confirmation"] is True
@@ -157,11 +166,10 @@ async def test_correction_model_unavailable_asks_to_retry_later(monkeypatch):
 
     monkeypatch.setattr(node_module, "route_completion", _raise)
 
-    state = {"raw_input_text": "না", "pending_ledger_entry": _PENDING}
+    state = {"raw_input_text": "ভুল হয়েছে", "pending_ledger_entry": _PENDING}
     result = await node_module.ledger_confirm_node(state)
     assert "সমস্যা হচ্ছে" in result["outbound_messages"][0]["body"]
-    assert "pending_ledger_entry" not in result
-
+    assert "pending_ledger_entry" not in result or result.get("pending_ledger_entry") is None
 
 
 @pytest.mark.asyncio
@@ -171,13 +179,14 @@ async def test_correction_malformed_json_asks_to_repeat(monkeypatch):
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 
-    state = {"raw_input_text": "না", "pending_ledger_entry": _PENDING}
+    state = {"raw_input_text": "ভুল হয়েছে", "pending_ledger_entry": _PENDING}
     result = await node_module.ledger_confirm_node(state)
     assert "সংশোধন বুঝতে পারলাম না" in result["outbound_messages"][0]["body"]
 
 
 def test_validate_amount_rejects_negative():
     assert node_module._validate_amount(-1) is None
+
 
 
 def test_validate_amount_accepts_normal_value():

@@ -1,42 +1,40 @@
-from __future__ import annotations
+from __future__ import annotations 
 
-import os
-import tempfile
+import os 
+import tempfile 
 
-from shared.config.settings import get_settings
+from shared .config .settings import get_settings 
 
-_model = None
+_model =None 
 
+def _get_model ():
+    global _model 
+    if _model is None :
+        try :
+            from faster_whisper import WhisperModel 
+            s =get_settings ()
+            _model =WhisperModel (s .whisper_model_path ,device =s .whisper_device ,compute_type =s .whisper_compute_type )
+        except Exception :
+            return None 
+    return _model 
 
-def _get_model():
-    global _model
-    if _model is None:
-        try:
-            from faster_whisper import WhisperModel
-            s = get_settings()
-            _model = WhisperModel(s.whisper_model_path, device=s.whisper_device, compute_type=s.whisper_compute_type)
-        except Exception:
-            return None
-    return _model
+async def transcribe (audio_bytes :bytes ,language :str ="bn")->dict :
+    with tempfile .NamedTemporaryFile (suffix =".wav",delete =False )as f :
+        f .write (audio_bytes )
+        wav_path =f .name 
 
-
-async def transcribe(audio_bytes: bytes, language: str = "bn") -> dict:
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-        f.write(audio_bytes)
-        wav_path = f.name
-
-    try:
-        model = _get_model()
-        if not model:
-            return {"transcript": "", "confidence": 0.0}
-        segments, info = model.transcribe(
-            wav_path, language=language, beam_size=5, vad_filter=True, condition_on_previous_text=False
+    try :
+        model =_get_model ()
+        if not model :
+            return {"transcript":"","confidence":0.0 }
+        segments ,info =model .transcribe (
+        wav_path ,language =language ,beam_size =5 ,vad_filter =True ,condition_on_previous_text =False 
         )
-        segments = list(segments)
-        transcript = " ".join(seg.text.strip() for seg in segments)
-        avg_logprob = sum(seg.avg_logprob for seg in segments) / max(len(segments), 1)
-        confidence = min(1.0, max(0.0, avg_logprob + 1.0))
-    finally:
-        os.unlink(wav_path)
+        segments =list (segments )
+        transcript =" ".join (seg .text .strip ()for seg in segments )
+        avg_logprob =sum (seg .avg_logprob for seg in segments )/max (len (segments ),1 )
+        confidence =min (1.0 ,max (0.0 ,avg_logprob +1.0 ))
+    finally :
+        os .unlink (wav_path )
 
-    return {"transcript": transcript.strip(), "confidence": round(confidence, 3)}
+    return {"transcript":transcript .strip (),"confidence":round (confidence ,3 )}

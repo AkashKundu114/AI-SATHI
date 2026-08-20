@@ -1,18 +1,18 @@
 .PHONY: help setup dev check-env test lint logs down
 
 help:
-	@echo "AI-SATHI — Development Commands"
+	@echo "AI-SATHI - Development Commands"
 	@echo "===================================="
-	@echo "make setup      — first-time setup: copy .env, validate it, bring up DB"
-	@echo "make dev        — start the full stack (docker compose up --build)"
-	@echo "make check-env  — verify required .env values are actually filled in"
-	@echo "make test       — run unit tests (no network/API keys required)"
-	@echo "make lint       — ruff + mypy"
-	@echo "make logs       — tail gateway + worker logs"
-	@echo "make down       — stop everything"
+	@echo "make setup      - first-time setup: copy .env, validate it, bring up DB"
+	@echo "make dev        - start the full stack (docker compose up --build)"
+	@echo "make check-env  - verify required .env values are actually filled in"
+	@echo "make test       - run unit tests (no network/API keys required)"
+	@echo "make lint       - ruff + mypy"
+	@echo "make logs       - tail gateway + worker logs"
+	@echo "make down       - stop everything"
 
 setup:
-	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env — now fill in the REQUIRED section before continuing."; else echo ".env already exists, leaving it alone."; fi
+	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env - now fill in the REQUIRED section before continuing."; else echo ".env already exists, leaving it alone."; fi
 	python3 scripts/check_env.py || true
 
 check-env:
