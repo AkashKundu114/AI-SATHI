@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { User, Lock, UserPlus, LogIn, Sparkles } from 'lucide-react';
+import { User, Lock, UserPlus, LogIn, Sparkles, Phone, MapPin, Calendar, Users } from 'lucide-react';
 
 export default function Auth({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [gender, setGender] = useState('male');
+  const [dob, setDob] = useState('');
+  const [phone, setPhone] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [shgRegNo, setShgRegNo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +22,7 @@ export default function Auth({ onLogin }) {
     const cleanPassword = password.trim();
 
     if (!cleanUsername || !cleanPassword) {
-      setError('Please fill in both username and password');
+      setError('ব্যবহারকারীর নাম এবং পাসওয়ার্ড দিন');
       return;
     }
 
@@ -25,7 +30,16 @@ export default function Auth({ onLogin }) {
     try {
       const endpoint = isRegister ? '/api/v1/auth/register' : '/api/v1/auth/login';
       const payload = isRegister
-        ? { username: cleanUsername, password: cleanPassword, name: name.trim() || undefined }
+        ? {
+            username: cleanUsername,
+            password: cleanPassword,
+            name: name.trim() || undefined,
+            gender: gender,
+            dob: dob.trim() || undefined,
+            phone: phone.trim() || undefined,
+            pincode: pincode.trim() || undefined,
+            shg_reg_no: shgRegNo.trim() || undefined,
+          }
         : { username: cleanUsername, password: cleanPassword };
 
       const response = await fetch(endpoint, {
@@ -60,7 +74,8 @@ export default function Auth({ onLogin }) {
       color: 'var(--text-primary)',
       fontFamily: 'var(--font-body)',
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      padding: '2rem 1rem'
     }}>
       {/* Background ambient lighting */}
       <div style={{
@@ -85,9 +100,9 @@ export default function Auth({ onLogin }) {
       }}></div>
 
       <div style={{
-        maxWidth: '430px',
-        width: '90%',
-        padding: '2.5rem 2.25rem',
+        maxWidth: isRegister ? '520px' : '430px',
+        width: '100%',
+        padding: '2.25rem 2rem',
         textAlign: 'center',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(212, 175, 55, 0.08)',
         borderRadius: 'var(--radius-smooth)',
@@ -96,7 +111,8 @@ export default function Auth({ onLogin }) {
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         position: 'relative',
-        zIndex: 10
+        zIndex: 10,
+        transition: 'max-width 0.3s ease'
       }}>
         {/* Top Accent Line */}
         <div style={{
@@ -113,7 +129,7 @@ export default function Auth({ onLogin }) {
         <div style={{
           width: '48px',
           height: '48px',
-          margin: '0 auto 1rem',
+          margin: '0 auto 0.75rem',
           background: 'linear-gradient(135deg, #F3E5AB 0%, #D4AF37 50%, #B8860B 100%)',
           borderRadius: 'var(--radius-sharp)',
           display: 'flex',
@@ -139,7 +155,7 @@ export default function Auth({ onLogin }) {
           AI-SATHI
         </h1>
         
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.75rem', fontSize: '0.85rem' }}>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
           স্বনির্ভর দল ও গ্রামীণ ব্যবসায়িক প্ল্যাটফর্ম
         </p>
 
@@ -149,7 +165,7 @@ export default function Auth({ onLogin }) {
           backgroundColor: 'rgba(255, 255, 255, 0.04)',
           borderRadius: 'var(--radius-sleek)',
           padding: '0.25rem',
-          marginBottom: '1.75rem',
+          marginBottom: '1.5rem',
           border: '1px solid var(--border-subtle)'
         }}>
           <button
@@ -201,29 +217,107 @@ export default function Auth({ onLogin }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {isRegister && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', textAlign: 'left' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                নাম / Full Name (Optional)
-              </label>
-              <input 
-                type="text" 
-                placeholder="e.g. অঞ্জলি দাস" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input-luxe"
-              />
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    পুরো নাম / Full Name
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Akash Kundu" 
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input-luxe"
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    লিঙ্গ / Gender
+                  </label>
+                  <select 
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="input-luxe"
+                    style={{ padding: '0.7rem' }}
+                  >
+                    <option value="male" style={{ background: '#090B10', color: '#FFF' }}>পুরুষ (Male)</option>
+                    <option value="female" style={{ background: '#090B10', color: '#FFF' }}>মহিলা (Female)</option>
+                    <option value="other" style={{ background: '#090B10', color: '#FFF' }}>অন্যান্য (Other)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    মোবাইল নম্বর / Phone
+                  </label>
+                  <input 
+                    type="tel" 
+                    placeholder="10-digit number" 
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="input-luxe"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    পিনকোড / Pincode
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="6-digit Pincode" 
+                    maxLength={6}
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    className="input-luxe"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', textAlign: 'left' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    জন্মতারিখ / DOB or Age
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. 1998 or 26" 
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    className="input-luxe"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    SHG Reg. No. (ঐচ্ছিক)
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="If SHG member" 
+                    value={shgRegNo}
+                    onChange={(e) => setShgRegNo(e.target.value)}
+                    className="input-luxe"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', textAlign: 'left' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               ব্যবহারকারীর নাম / Username
             </label>
             <input 
               type="text" 
-              placeholder="e.g. admin or anjali_shg" 
+              placeholder="e.g. admin or akash_kundu" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="input-luxe"
@@ -232,8 +326,8 @@ export default function Auth({ onLogin }) {
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', textAlign: 'left' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.725rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               পাসওয়ার্ড / Password
             </label>
             <input 
@@ -276,7 +370,7 @@ export default function Auth({ onLogin }) {
           </button>
         </form>
 
-        <div style={{ marginTop: '2rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+        <div style={{ marginTop: '1.75rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           <span>🔒 PBKDF2 Password Hashing</span>
           <span>•</span>
           <span>⚡ Sarvam AI Powered</span>

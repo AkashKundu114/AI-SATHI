@@ -43,6 +43,10 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255))
     phone_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String(255))
+    gender: Mapped[str | None] = mapped_column(String(20)) # 'male' | 'female' | 'other'
+    dob: Mapped[str | None] = mapped_column(String(30)) # Date of birth / age
+    pincode: Mapped[str | None] = mapped_column(String(10))
+    shg_reg_no: Mapped[str | None] = mapped_column(String(100)) # Optional SHG Registration No
     shg_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("shg_groups.id"))
     district: Mapped[str | None] = mapped_column(String(100))
     block: Mapped[str | None] = mapped_column(String(100))

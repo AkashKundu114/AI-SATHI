@@ -48,6 +48,10 @@ class RegisterRequest(BaseModel):
     password: str
     name: str | None = None
     phone: str | None = None
+    gender: str | None = "male"
+    dob: str | None = None
+    pincode: str | None = None
+    shg_reg_no: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -58,13 +62,17 @@ class LoginRequest(BaseModel):
 @router.post("/auth/register")
 async def register_user(payload: RegisterRequest) -> dict:
     """
-    Registers a new user with a unique username and securely hashed password.
-    Returns a JWT token and user profile upon successful registration.
+    Registers a new user with username, hashed password, and streamlined profile info:
+    Name, Gender, DOB, Phone, Pincode, and optional SHG Registration Number.
     """
     username = payload.username.strip().lower()
     password = payload.password.strip()
-    name = payload.name.strip() if payload.name else "নতুন ব্যবহারকারী"
+    name = payload.name.strip() if payload.name else "Akash Kundu"
     raw_phone = payload.phone.strip() if payload.phone else ""
+    gender = (payload.gender or "male").strip().lower()
+    dob = payload.dob.strip() if payload.dob else ""
+    pincode = payload.pincode.strip() if payload.pincode else ""
+    shg_reg_no = payload.shg_reg_no.strip() if payload.shg_reg_no else ""
 
     if len(username) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters long.")
@@ -103,6 +111,11 @@ async def register_user(payload: RegisterRequest) -> dict:
             password_hash=pwd_hash,
             phone_number=phone,
             name=name,
+            gender=gender,
+            dob=dob,
+            pincode=pincode,
+            shg_reg_no=shg_reg_no,
+            consent_given=True,
             verification_status="verified",
             user_type="shg_member",
         )
@@ -115,10 +128,12 @@ async def register_user(payload: RegisterRequest) -> dict:
             "username": new_user.username,
             "phone": new_user.phone_number,
             "name": new_user.name,
+            "gender": new_user.gender or "male",
+            "dob": new_user.dob or "",
+            "pincode": new_user.pincode or "",
+            "shg_reg_no": new_user.shg_reg_no or "",
             "shg_name": "Not specified",
-            "district": getattr(new_user, "district", None) or "West Bengal",
-            "block": getattr(new_user, "block", None) or "Rural Block",
-            "user_type": getattr(new_user, "user_type", None) or "shg_member",
+            "user_type": getattr(new_user, "user_type", "shg_member") or "shg_member",
         }
 
     token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
@@ -192,10 +207,12 @@ async def login_user(payload: LoginRequest) -> dict:
             "id": str(user.id),
             "username": getattr(user, "username", None) or username,
             "phone": user.phone_number or "9064349004",
-            "name": user.name or "User",
+            "name": user.name or ("Akash Kundu" if username == "admin" else "User"),
+            "gender": getattr(user, "gender", None) or ("male" if username == "admin" else "male"),
+            "dob": getattr(user, "dob", None) or "",
+            "pincode": getattr(user, "pincode", None) or "",
+            "shg_reg_no": getattr(user, "shg_reg_no", None) or "",
             "shg_name": "Not specified",
-            "district": getattr(user, "district", None) or "West Bengal",
-            "block": getattr(user, "block", None) or "Rural Block",
             "user_type": getattr(user, "user_type", None) or "shg_member",
         }
 
