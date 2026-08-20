@@ -25,7 +25,7 @@ AI-SATHI is a production-grade, voice-first Web UI financial assistant built for
 
 - **Web-native UI**: Interactive React + Vite frontend accessible directly in the browser via `kothakhata.app`
 - **Sarvam AI exclusive**: Zero OpenAI dependency - uses `saaras:v4`, `mayura:v1`, `sarvam-105b`, `sarvam-105b-conversations`, `Parse`, and `Vision`
-- **Self-hosted fallback**: Local Ollama + `faster-whisper` keeps every feature alive during API outages
+- **Voice Intelligence**: Multi-lingual STT & TTS with `faster-whisper` and Sarvam Saaras Bengali models
 - **390 offline tests**: Full security, edge-case, and behavioral coverage with no network required
 
 ## Architecture
@@ -50,7 +50,7 @@ AI-SATHI is a production-grade, voice-first Web UI financial assistant built for
 </p>
 </details>
 
-**In one paragraph:** `backend/services/gateway` is the FastAPI webhook receiver - it verifies Meta's HMAC signature, deduplicates retried webhooks, rate-limits per number, and hands off to Celery. `backend/services/orchestrator` is a LangGraph state machine (Postgres-checkpointed, resumable) with one node per agent. `backend/services/orchestrator/model_router.py` is the single place any LLM/vision/translation call goes through - a Sarvam-to-local-Ollama cascade with retries and hard timeouts. `backend/shared/knowledge/` is the single source of cultural/seasonal/market-timing context every agent reads from.
+**In one paragraph:** `backend/services/gateway` is the FastAPI web gateway - it authenticates web sessions, deduplicates requests, rate-limits per user, and dispatches to orchestrator. `backend/services/orchestrator` is a LangGraph state machine (Postgres-checkpointed, resumable) with one node per agent. `backend/services/orchestrator/model_router.py` is the single place any LLM/vision/translation call goes through - a Sarvam AI cascade with retries and hard timeouts. `backend/shared/knowledge/` is the single source of cultural/seasonal/market-timing context every agent reads from.
 
 ## Features
 
