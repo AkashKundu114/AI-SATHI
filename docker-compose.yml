@@ -27,13 +27,14 @@ services:
     build:
       context: .
       dockerfile: backend/services/gateway/Dockerfile
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://aisathi:aisathi@postgres:5432/aisathi
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aisathi}
       ADMIN_PASSWORD: admin
       ADMIN_API_TOKEN: secret-admin-token
       JWT_SECRET: super-secret-jwt-key-for-ai-sathi-platform
-      SARVAM_API_KEY: ${SARVAM_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:

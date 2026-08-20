@@ -194,20 +194,9 @@ async def get_compiled_graph():
     if _compiled_graph is not None:
         return _compiled_graph
 
-    s = get_settings()
-    checkpointer = None
-    try:
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from langgraph.checkpoint.memory import MemorySaver
 
-        checkpointer_ctx = AsyncPostgresSaver.from_conn_string(s.database_url)
-        checkpointer = await checkpointer_ctx.__aenter__()
-        await checkpointer.setup()
-    except Exception as exc:
-        logger.info("PostgreSQL checkpointer unavailable (%s) - falling back to MemorySaver", exc)
-        from langgraph.checkpoint.memory import MemorySaver
-
-        checkpointer = MemorySaver()
-
+    checkpointer = MemorySaver()
     graph = build_graph()
     _compiled_graph = graph.compile(checkpointer=checkpointer)
     return _compiled_graph

@@ -420,6 +420,12 @@ async def ledger_extract_node(state: ConversationState) -> dict:
         ):
             transactions[0]["amount_inr"] = float(explicit_num)
 
+    if len(transactions) == 1:
+        for pat, item_name in RURAL_ITEM_PATTERNS:
+            if pat.search(original_transcript):
+                transactions[0]["item_bengali"] = item_name
+                break
+
     pending = {
         "transactions": transactions,
         "overall_confidence": confidence,
