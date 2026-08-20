@@ -1,5 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { BookOpen, ChevronDown, ChevronUp, Mic, MicOff, RefreshCw, Send, Trash2 } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Mic,
+  MicOff,
+  RefreshCw,
+  Send,
+  Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  TrendingUp,
+  CreditCard,
+  Layers,
+  CheckCircle2,
+  Trash2
+} from 'lucide-react';
 
 /* ─── SHG & Village Life Category Options ───────────────────── */
 const VILLAGE_CATEGORIES = [
@@ -14,6 +30,14 @@ const VILLAGE_CATEGORIES = [
   { label: '📦 অন্যান্য (Others)', value: 'অন্যান্য' },
 ];
 
+/* ─── Fast Action Chips ─────────────────────────────────────── */
+const ACTION_CHIPS = [
+  { label: '🥟 মোমো খেয়েছি ₹৫০', query: 'momo kheyechi 50 takar' },
+  { label: '🪑 চেয়ার বিক্রি ₹৬০০', query: 'beter chair bikro korechi 600 takar' },
+  { label: '🤝 রিনা দি-কে ধার ₹৩০০', query: 'rina di ke 300 dhar diyechi' },
+  { label: '🌾 ধান বিক্রি ₹১২০০', query: 'dhan bikri korechi 1200 takar' },
+  { label: '📊 হিসাবের রিপোর্ট', query: 'রিপোর্ট' },
+];
 
 /* ─── Main Chat Interface Component ────────────────────────── */
 export default function ChatInterface({ userProfile }) {
@@ -21,7 +45,7 @@ export default function ChatInterface({ userProfile }) {
     {
       id: 'welcome',
       sender: 'ai',
-      text: `নমস্কার ${userProfile?.name || 'ব্যবহারকারী'}! 🙏\n\nআমি আপনার AI-SATHI সহকারী। নিচে দেওয়া ৮টি লেনদেন মোডে আপনার হিসাব সহজে জমা রাখতে পারেন:\n\n১. 📈 বিক্রি/জমা  ২. 📉 খরচ/ক্রয়  ৩. 🤝 বাকিতে বিক্রি  ৪. 📥 বাকি আদায়\n৫. 🏦 ঋণ গ্রহণ  ৬. 💸 কিস্তি শোধ  ৭. 🐷 সঞ্চয় জমা  ৮. 👷 মজুরি`,
+      text: `নমস্কার ${userProfile?.name || 'উদ্যোক্তা'}! 🙏\n\nআমি আপনার AI-SATHI সহকারী। আপনার আয়, ব্যয়, ধার, ঋণ বা কিস্তির হিসাব মুখে বলে বা লিখে সহজেই ডিজিটাল খাতায় সংরক্ষণ করতে পারেন।\n\nযেমন বলুন: "মোমো খেয়েছি ৫০ টাকা" বা "চেয়ার বিক্রি করেছি ৬০০ টাকা"।`,
       type: 'text',
       timestamp: new Date(),
     },
@@ -108,7 +132,7 @@ export default function ChatInterface({ userProfile }) {
       } else {
         addMessage({
           sender: 'ai',
-          text: 'দুঃখিত, আমি উত্তর দিতে পারলাম না।',
+          text: 'দুঃখিত, কোনো উত্তর পাওয়া যায়নি।',
           type: 'text',
         });
       }
@@ -116,7 +140,7 @@ export default function ChatInterface({ userProfile }) {
       console.error('Chat error:', err);
       addMessage({
         sender: 'ai',
-        text: 'দুঃখিত, কোনো একটি সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
+        text: 'দুঃখিত, সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
         type: 'text',
       });
     } finally {
@@ -150,52 +174,69 @@ export default function ChatInterface({ userProfile }) {
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        stream.getTracks().forEach((t) => t.stop());
-        await processVoice(blob);
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        await handleAudioUpload(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('Microphone access error:', err);
-      addMessage({
-        sender: 'ai',
-        text: 'মাইক্রোফোন অ্যাক্সেস করা যায়নি। অনুগ্রহ করে ব্রাউজার পারমিশন পরীক্ষা করে আবার চেষ্টা করুন।',
-        type: 'text',
-      });
+      console.error('Microphone error:', err);
+      alert('মাইক্রোফোন অ্যাক্সেস করতে পারা যায়নি। অনুগ্রহ করে ব্রাউজারে পারমিশন দিন।');
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   };
 
-  const processVoice = async (blob) => {
+  const handleAudioUpload = async (audioBlob) => {
     setIsLoading(true);
-    addMessage({ sender: 'user', text: '🎙️ ভয়েস বার্তা পাঠানো হচ্ছে...', type: 'text' });
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const pendingMsgId = Date.now() + Math.random();
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: pendingMsgId,
+        sender: 'user',
+        text: '🎤 অডিও প্রসেসিং হচ্ছে (AI Saaras STT)...',
+        type: 'audio',
+        audioUrl,
+        timestamp: new Date(),
+      },
+    ]);
 
     try {
       const formData = new FormData();
-      formData.append('file', blob, 'recording.webm');
-      formData.append('user_phone', userProfile.phone);
+      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('user_phone', userProfile?.phone || '');
 
-      const voiceRes = await fetch('/api/v1/voice', {
+      const token = localStorage.getItem('ai_sathi_token') || '';
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/v1/voice/chat', {
         method: 'POST',
+        headers,
         body: formData,
       });
-      const voiceData = await voiceRes.json();
-      const transcript = voiceData.transcript || '';
 
-      if (transcript) {
+      const voiceData = await res.json();
+
+      if (voiceData.transcript) {
         setMessages((prev) => {
           const updated = [...prev];
-          const lastUserIdx = updated.findLastIndex((m) => m.sender === 'user');
-          if (lastUserIdx >= 0) {
-            updated[lastUserIdx] = { ...updated[lastUserIdx], text: `🎙️ "${transcript}"` };
+          const idx = updated.findIndex((m) => m.id === pendingMsgId);
+          if (idx !== -1) {
+            updated[idx] = {
+              ...updated[idx],
+              text: `🎤 "${voiceData.transcript}"`,
+            };
           }
           return updated;
         });
@@ -207,21 +248,14 @@ export default function ChatInterface({ userProfile }) {
             type: 'text',
           });
 
-          // Auto-refresh ledger if it was saved
           if (voiceData.messages[0].body.includes('সফলভাবে সংরক্ষণ')) {
             fetchPastLedger();
           }
-        } else {
-          addMessage({
-            sender: 'ai',
-            text: 'ভয়েস প্রক্রিয়া করা হয়েছে। কোনো লেনদেন পাওয়া যায়নি।',
-            type: 'text',
-          });
         }
       } else {
         addMessage({
           sender: 'ai',
-          text: voiceData.messages?.[0]?.body || 'ভয়েস রেকর্ডটি ঠিকমত বোঝা যায়নি। অনুগ্রহ করে স্পষ্টভাবে আবার বলুন।',
+          text: voiceData.messages?.[0]?.body || 'ভয়েস রেকর্ডটি ঠিকমত বোঝা যায়নি। অনুগ্রহ করে স্পষ্টভাবে বলুন।',
           type: 'text',
         });
       }
@@ -237,46 +271,117 @@ export default function ChatInterface({ userProfile }) {
     }
   };
 
-
   // Past ledger financial totals
-  const totalIncome = ledgerEntries.filter((e) => ['income', 'jama', 'recovery'].includes(e.type)).reduce((sum, e) => sum + (e.amount || 0), 0);
-  const totalExpense = ledgerEntries.filter((e) => ['expense', 'khoroch', 'borrow', 'lend', 'kisti', 'wages', 'savings'].includes(e.type)).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalIncome = ledgerEntries
+    .filter((e) => ['income', 'jama', 'recovery'].includes(e.type))
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalExpense = ledgerEntries
+    .filter((e) => ['expense', 'khoroch', 'borrow', 'lend', 'kisti', 'wages', 'savings'].includes(e.type))
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
+  const net = totalIncome - totalExpense;
 
   const getModeBadge = (type) => {
     switch (type) {
-      case 'income': return { label: 'বিক্রি/জমা', class: 'badge-sharp--emerald' };
-      case 'expense': return { label: 'খরচ/ক্রয়', class: 'badge-sharp--amber' };
-      case 'lend': return { label: 'ধার দেওয়া', class: 'badge-sharp--sapphire' };
-      case 'recovery': return { label: 'বাকি আদায়', class: 'badge-sharp--emerald' };
-      case 'borrow': return { label: 'ঋণ নেওয়া', class: 'badge-sharp--gold' };
-      case 'kisti': return { label: 'কিস্তি শোধ', class: 'badge-sharp--amber' };
-      case 'savings': return { label: 'সঞ্চয় জমা', class: 'badge-sharp--sapphire' };
-      case 'wages': return { label: 'মজুরি', class: 'badge-sharp--gold' };
-      default: return { label: type || 'লেনদেন', class: 'badge-sharp--emerald' };
+      case 'income':
+      case 'jama':
+        return { label: 'বিক্রি/জমা', badgeClass: 'badge-emerald' };
+      case 'expense':
+      case 'khoroch':
+        return { label: 'খরচ/ক্রয়', badgeClass: 'badge-rose' };
+      case 'lend':
+        return { label: 'ধার দেওয়া', badgeClass: 'badge-gold' };
+      case 'recovery':
+        return { label: 'বাকি আদায়', badgeClass: 'badge-emerald' };
+      case 'borrow':
+        return { label: 'ঋণ নেওয়া', badgeClass: 'badge-sapphire' };
+      case 'kisti':
+        return { label: 'কিস্তি শোধ', badgeClass: 'badge-rose' };
+      case 'savings':
+        return { label: 'সঞ্চয় জমা', badgeClass: 'badge-gold' };
+      case 'wages':
+        return { label: 'মজুরি', badgeClass: 'badge-rose' };
+      default:
+        return { label: type || 'লেনদেন', badgeClass: 'badge-neutral' };
     }
   };
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%', position: 'relative' }}>
-      {/* ── Main Chat Area ── */}
-      <div className="chat-container" style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* Messages List */}
-        <div className="chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+      {/* ── Main Chat Column ── */}
+      <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        
+        {/* Quick Action Chips Bar */}
+        <div style={{
+          padding: '0.65rem 1.5rem',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex',
+          gap: '0.5rem',
+          overflowX: 'auto',
+          background: 'var(--bg-canvas-subtle)',
+          flexShrink: 0
+        }}>
+          {ACTION_CHIPS.map((chip, idx) => (
+            <button
+              key={idx}
+              className="chip-pill"
+              onClick={() => sendTextMessage(chip.query)}
+              disabled={isLoading}
+            >
+              <span>{chip.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Messages Stream */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          maxWidth: '860px',
+          width: '100%',
+          margin: '0 auto'
+        }}>
           {messages.map((msg) => (
-            <div key={msg.id} className={`slide-up ${msg.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{msg.text}</div>
-              <div className="bubble-time">
-                {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
+            <div
+              key={msg.id}
+              style={{
+                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '82%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.3rem'
+              }}
+            >
+              <div
+                className={msg.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}
+                style={{
+                  padding: '0.9rem 1.15rem',
+                  fontSize: '0.925rem',
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre-wrap'
+                }}
+              >
+                {msg.text}
               </div>
+              <span style={{
+                fontSize: '0.68rem',
+                color: 'var(--text-muted)',
+                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                padding: '0 0.4rem'
+              }}>
+                {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
+              </span>
             </div>
           ))}
 
           {isLoading && (
-            <div className="chat-bubble-ai slide-up">
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+            <div style={{ alignSelf: 'flex-start', maxWidth: '82%' }}>
+              <div className="chat-bubble-ai" style={{ padding: '0.85rem 1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sparkles size={16} color="var(--color-gold)" />
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>AI হিসাব বিশ্লেষণ করছে...</span>
               </div>
             </div>
           )}
@@ -284,63 +389,82 @@ export default function ChatInterface({ userProfile }) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Floating Input Bar */}
-        <div className="chat-input-bar">
-          <button
-            type="button"
-            className={`voice-btn ${isRecording ? 'recording' : ''}`}
-            onClick={isRecording ? stopRecording : startRecording}
-            disabled={isLoading}
-            title={isRecording ? 'রেকর্ডিং বন্ধ করুন' : 'মুখে বলতে চাপুন (Voice Record)'}
-            style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '50%',
-              border: 'none',
-              background: isRecording ? 'var(--color-crimson)' : 'var(--color-gold)',
-              color: '#0A0F1A',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              flexShrink: 0,
-              boxShadow: isRecording ? '0 0 15px var(--color-crimson)' : 'var(--shadow-glow-gold)',
-            }}
-          >
-            {isRecording ? <MicOff size={22} color="#FFF" /> : <Mic size={22} color="#0A0F1A" />}
-          </button>
+        {/* Sleek Floating Input Bar */}
+        <div style={{
+          padding: '1rem 1.5rem',
+          borderTop: '1px solid var(--border-subtle)',
+          background: 'var(--bg-glass)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          flexShrink: 0
+        }}>
+          <div style={{
+            maxWidth: '860px',
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+          }}>
+            {/* Microphone Button */}
+            <button
+              type="button"
+              className={`btn-luxe ${isRecording ? 'mic-recording' : 'btn-luxe-gold'}`}
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isLoading}
+              title={isRecording ? 'রেকর্ডিং বন্ধ করুন' : 'মুখে বলে হিসাব রাখুন'}
+              style={{
+                width: '44px',
+                height: '44px',
+                padding: 0,
+                borderRadius: 'var(--radius-sleek)',
+                flexShrink: 0
+              }}
+            >
+              {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+            </button>
 
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="স্বনির্ভর দল, বেচা-কেনা, ধার বা কিস্তির হিসাব লিখুন..."
-            disabled={isLoading || isRecording}
-          />
+            {/* Input Field */}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="স্বনির্ভর দল, বেচা-কেনা, ধার বা খরচের হিসাব লিখুন..."
+              disabled={isLoading || isRecording}
+              className="input-luxe"
+              style={{ flex: 1 }}
+            />
 
-          <button
-            type="button"
-            className="btn-sharp btn-sharp--primary"
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            style={{ height: '46px', width: '46px', padding: 0, borderRadius: '50%', flexShrink: 0 }}
-            title="পাঠান"
-          >
-            <Send size={18} />
-          </button>
+            {/* Send Button */}
+            <button
+              type="button"
+              className="btn-luxe btn-luxe-primary"
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              style={{
+                width: '44px',
+                height: '44px',
+                padding: 0,
+                borderRadius: 'var(--radius-sleek)',
+                flexShrink: 0
+              }}
+              title="পাঠান"
+            >
+              <Send size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── Persistent Past Ledger Records Sidebar / Drawer Panel ── */}
+      {/* ── Persistent Past Ledger Sidebar / Mini-Tracker ── */}
       <div
         style={{
-          width: showLedgerPanel ? '350px' : '48px',
-          borderLeft: '1px solid var(--border-default)',
-          background: 'var(--bg-secondary)',
+          width: showLedgerPanel ? '360px' : '52px',
+          borderLeft: '1px solid var(--border-subtle)',
+          background: 'var(--bg-canvas-subtle)',
           display: 'flex',
           flexDirection: 'column',
-          transition: 'width 0.3s ease',
+          transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           zIndex: 10,
           flexShrink: 0,
         }}
@@ -350,7 +474,7 @@ export default function ChatInterface({ userProfile }) {
           onClick={() => setShowLedgerPanel((prev) => !prev)}
           style={{
             padding: '0.85rem 1rem',
-            borderBottom: '1px solid var(--border-default)',
+            borderBottom: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -359,90 +483,103 @@ export default function ChatInterface({ userProfile }) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <BookOpen size={18} color="var(--color-gold)" />
-            {showLedgerPanel && <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>হিসাবের খাতা (SHG & Past Ledger)</span>}
+            <BookOpen size={16} color="var(--color-gold)" />
+            {showLedgerPanel && (
+              <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                লাইভ খাতা (Live Ledger)
+              </span>
+            )}
           </div>
-          <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-            {showLedgerPanel ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex' }}>
+            {showLedgerPanel ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
 
         {showLedgerPanel && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0.85rem' }}>
-            {/* Metrics Grid */}
+            {/* Quick Metrics */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.85rem' }}>
-              <div className="card-sharp" style={{ padding: '0.65rem', textAlign: 'center', background: 'var(--bg-surface)' }}>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট জমা (Income)</div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-emerald-light)' }}>
+              <div className="glass-card-sharp" style={{ padding: '0.65rem', textAlign: 'center', borderLeft: '2px solid var(--color-emerald)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>মোট জমা (Income)</div>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-emerald-light)', marginTop: '0.15rem' }}>
                   ₹{totalIncome.toLocaleString('en-IN')}
                 </div>
               </div>
 
-              <div className="card-sharp" style={{ padding: '0.65rem', textAlign: 'center', background: 'var(--bg-surface)' }}>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>মোট খরচ (Outflow)</div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-amber-light)' }}>
+              <div className="glass-card-sharp" style={{ padding: '0.65rem', textAlign: 'center', borderLeft: '2px solid var(--color-rose)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>মোট খরচ (Outflow)</div>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-rose-light)', marginTop: '0.15rem' }}>
                   ₹{totalExpense.toLocaleString('en-IN')}
                 </div>
               </div>
             </div>
 
-            {/* Refresh Button */}
+            {/* List Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                সংরক্ষিত লেনদেনসমূহ ({ledgerEntries.length})
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                হালনাগাদ লেনদেন ({ledgerEntries.length})
               </span>
               <button
-                className="btn-sharp btn-sharp--sm btn-sharp--ghost"
+                className="btn-luxe btn-luxe-outline"
                 onClick={fetchPastLedger}
-                style={{ padding: '0.25rem 0.5rem' }}
+                style={{ padding: '0.25rem 0.45rem', height: '24px' }}
                 title="রিফ্রেশ করুন"
               >
-                <RefreshCw size={13} className={ledgerLoading ? 'spin' : ''} />
+                <RefreshCw size={12} className={ledgerLoading ? 'spin' : ''} />
               </button>
             </div>
 
             {/* Records List */}
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
               {ledgerLoading ? (
-                <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                   লোড হচ্ছে...
                 </div>
               ) : ledgerEntries.length === 0 ? (
-                <div style={{ padding: '1.5rem 0.75rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed var(--border-default)', borderRadius: 'var(--radius-md)' }}>
-                  এখনো কোনো স্থায়ী লেনদেন সংরক্ষণ করা হয়নি। কথা বলে বা লিখে স্থায়ীভাবে জমা করুন।
+                <div style={{
+                  padding: '2rem 1rem',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.8rem',
+                  border: '1px dashed var(--border-subtle)',
+                  borderRadius: 'var(--radius-sleek)'
+                }}>
+                  এখনো কোনো স্থায়ী লেনদেন সংরক্ষণ করা হয়নি।
                 </div>
               ) : (
                 ledgerEntries.map((entry) => {
                   const badge = getModeBadge(entry.type);
+                  const isPositive = ['income', 'jama', 'recovery'].includes(entry.type);
                   return (
                     <div
                       key={entry.id}
-                      className="card-sharp"
+                      className="glass-card-sharp"
                       style={{
                         padding: '0.65rem 0.85rem',
-                        borderLeft: `3px solid ${
-                          entry.type === 'income' || entry.type === 'recovery' ? 'var(--color-emerald)' :
-                          entry.type === 'lend' || entry.type === 'savings' ? 'var(--color-sapphire)' :
-                          entry.type === 'borrow' || entry.type === 'wages' ? 'var(--color-gold)' : 'var(--color-amber)'
-                        }`,
-                        background: 'var(--bg-surface)',
+                        borderLeft: `3px solid ${isPositive ? 'var(--color-emerald)' : 'var(--color-rose)'}`,
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ overflow: 'hidden', paddingRight: '0.5rem' }}>
-                          <span className={`badge-sharp ${badge.class}`} style={{ fontSize: '0.65rem' }}>
+                          <span className={`badge-luxe ${badge.badgeClass}`} style={{ fontSize: '0.65rem' }}>
                             {badge.label}
                           </span>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 600, marginTop: '0.2rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ fontSize: '0.825rem', fontWeight: 600, marginTop: '0.2rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {entry.note || 'বিবরণ নেই'}
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                             {entry.category} • {entry.date}
                           </div>
                         </div>
 
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: ['income', 'recovery'].includes(entry.type) ? 'var(--color-emerald-light)' : 'var(--color-amber-light)', whiteSpace: 'nowrap' }}>
-                          ₹{entry.amount?.toLocaleString('en-IN')}
+                        <div style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 800,
+                          fontFamily: 'var(--font-display)',
+                          color: isPositive ? 'var(--color-emerald-light)' : 'var(--color-rose-light)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {isPositive ? '+' : '-'}₹{entry.amount?.toLocaleString('en-IN')}
                         </div>
                       </div>
                     </div>
@@ -456,3 +593,4 @@ export default function ChatInterface({ userProfile }) {
     </div>
   );
 }
+

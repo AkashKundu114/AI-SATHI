@@ -42,10 +42,24 @@ def _route_after_profile_load(state: ConversationState) -> str:
         return "onboarding"
 
     if state.get("awaiting_confirmation"):
+        raw_text = (state.get("raw_input_text") or state.get("raw_input_transcript") or "").strip().lower()
+        new_txn_indicators = [
+            "bikri", "বিক্রি", "kheyechi", "খেয়েছি", "bechechi", "বেচেছি",
+            "kinlam", "কিনলাম", "kinechi", "কিনেছি", "dhar diyechi", "ধার দিয়েছি",
+            "bikro korechi", "বিক্রি করেছি"
+        ]
+        words = set(raw_text.split())
+        is_simple_confirm = any(w in words for w in ["ha", "na", "yes", "no", "ok", "হবে", "হ্যাঁ", "না"])
+        if any(ind in raw_text for ind in new_txn_indicators) and not is_simple_confirm:
+            state["pending_ledger_entry"] = None
+            state["awaiting_confirmation"] = False
+            return "classify_intent"
+
         payload = _interactive_payload(state)
         if "confirmation_choice" in payload:
             return "ledger_confirm_flow"
         return "ledger_confirm"
+
 
     if state.get("awaiting_negotiation"):
         return "negotiation"

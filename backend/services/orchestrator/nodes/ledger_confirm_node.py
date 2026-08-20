@@ -58,7 +58,13 @@ async def ledger_confirm_node(state: ConversationState) -> dict:
     if reply_raw in AFFIRMATIVE:
         return await _save(state, pending)
 
-    if reply_raw in NEGATIVE or _looks_like_correction(reply_raw):
+    if reply_raw in NEGATIVE and not _looks_like_correction(reply_raw):
+        return _reset_with_message(
+            "ঠিক আছে, এই হিসাবটি বাদ দেওয়া হলো। নতুন কোনো হিসাব থাকলে বলুন বা লিখুন।",
+            trace=f"ledger_confirm_node:declined_by_user:turn={turns}",
+        )
+
+    if _looks_like_correction(reply_raw) or any(neg in reply_raw for neg in ["ভুল", "না", "noy", "noy"]):
         return await _apply_correction(state, pending, reply_raw, turns)
 
     return {
@@ -74,6 +80,8 @@ def _looks_like_correction(text: str) -> bool:
 
 
 async def _apply_correction(state: ConversationState, pending: dict, correction_text: str, turns: int) -> dict:
+    from services.orchestrator.nodes.ledger_node import _build_confirmation, _extract_single_clause
+
     prompt = (
         f"মূল বাক্য: {pending.get('raw_transcript', '')}\n"
         f"পূর্বের ফলাফল: {pending}\n"
@@ -85,12 +93,36 @@ async def _apply_correction(state: ConversationState, pending: dict, correction_
             system=CORRECTION_SYSTEM, prompt=prompt, criticality=TaskCriticality.ROUTINE, confidence_floor=0.80
         )
     except ModelUnavailableError:
-        return {
-            "awaiting_confirmation": True,
-            "ledger_confirmation_turns": turns,
-            "outbound_messages": [{"type": "text", "body": "এই মুহূর্তে সংশোধন প্রসেস করতে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।"}],
-            "trace": [f"ledger_confirm_node:model_unavailable:turn={turns}"],
-        }
+        # Graceful deterministic fallback correction
+        txns = pending.get("transactions", [])
+        if txns:
+            corrected_txns = list(txns)
+            clause_extracted = _extract_single_clause(correction_text)
+            if clause_extracted and clause_extracted.get("amount_inr"):
+                corrected_txns[0]["amount_inr"] = clause_extracted["amount_inr"]
+                if clause_extracted.get("item_bengali"):
+                    corrected_txns[0]["item_bengali"] = clause_extracted["item_bengali"]
+            updated = {
+                "transactions": corrected_txns,
+                "overall_confidence": 0.85,
+                "raw_transcript": pending.get("raw_transcript", ""),
+                "extracted_by": "deterministic_correction_fallback",
+            }
+            return {
+                "pending_ledger_entry": updated,
+                "awaiting_confirmation": True,
+                "ledger_confirmation_turns": turns,
+                "outbound_messages": [
+                    {"type": "text", "body": f"হিসাবটি সংশোধন করা হলো। আবার দেখুন:\n\n{_build_confirmation(updated)}"}
+                ],
+                "trace": [f"ledger_confirm_node:deterministic_correction:turn={turns}"],
+            }
+
+        return _reset_with_message(
+            "ঠিক আছে, এই হিসাবটি বাদ দেওয়া হলো। নতুন কোনো হিসাব থাকলে বলুন বা লিখুন।",
+            trace=f"ledger_confirm_node:reset_after_correction_fallback:turn={turns}",
+        )
+
 
     import json
     import re

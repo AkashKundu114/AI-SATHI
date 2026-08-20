@@ -127,13 +127,12 @@ async def route_completion(
         effective_tier = AgentTier.STANDARD
 
     if conversational:
-        model_name = getattr(s, "sarvam_conversational_model", "sarvam-105b-conversational")
+        model_name = getattr(s, "sarvam_conversational_model", "sarvam-105b-conversations")
     else:
         model_name = s.sarvam_advanced_model if effective_tier == AgentTier.ADVANCED else s.sarvam_chat_model
 
     if model_name and "105b" in model_name:
         max_tokens = max(max_tokens, 2048)
-
 
     credit_cost = (
         CREDIT_COST_SARVAM_TEXT_ADVANCED if effective_tier == AgentTier.ADVANCED
@@ -141,16 +140,27 @@ async def route_completion(
     )
 
     if s.sarvam_api_key and not _breaker_is_open():
-        try:
-            text = await sarvam_client.chat_completion(system, prompt, model=model_name, max_tokens=max_tokens)
-            _record_sarvam_success()
-            await charge_credits("sarvam", credit_cost, "text", user_id=user_id)
-            if _parse_self_reported_confidence(text) >= confidence_floor:
+        models_to_try = [model_name, "sarvam-105b-conversations", "sarvam-105b"] if conversational else [model_name, "sarvam-105b"]
+        seen = set()
+        unique_models = [m for m in models_to_try if not (m in seen or seen.add(m))]
+        
+        last_exc = None
+        for m in unique_models:
+            try:
+                text = await sarvam_client.chat_completion(system, prompt, model=m, max_tokens=max_tokens)
+                _record_sarvam_success()
+                await charge_credits("sarvam", credit_cost, "text", user_id=user_id)
+                if _parse_self_reported_confidence(text) >= confidence_floor:
+                    return {"text": text, "model_used": f"sarvam-{effective_tier.value}", "escalated": False}
                 return {"text": text, "model_used": f"sarvam-{effective_tier.value}", "escalated": False}
-            logger.warning("Sarvam (%s) low self-reported confidence, falling through to local", effective_tier.value)
-        except SarvamUnavailableError as exc:
+            except SarvamUnavailableError as exc:
+                last_exc = exc
+                continue
+
+        if last_exc:
             _record_sarvam_failure()
-            logger.warning("Sarvam (%s) unavailable, falling through to local: %s", effective_tier.value, exc)
+            logger.warning("Sarvam (%s) unavailable, falling through to local: %s", effective_tier.value, last_exc)
+
     elif s.sarvam_api_key and _breaker_is_open():
         logger.info("Sarvam circuit breaker open — skipping Sarvam call, going straight to local fallback")
 
