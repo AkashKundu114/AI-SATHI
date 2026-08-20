@@ -131,12 +131,23 @@ async def _create_user(state: ConversationState) -> str:
     pincode_raw = state.get("onboarding_pincode") or state.get("onboarding_block") or ""
     pincode = "".join(filter(str.isdigit, pincode_raw))[:6]
 
+    digits = "".join(filter(str.isdigit, str(phone)))
+    last10 = digits[-10:] if len(digits) >= 10 else digits
+
     async with get_db_session() as db:
         existing = (
             await db.execute(
-                select(User).where(or_(User.phone_number == phone, User.username == phone))
+                select(User).where(
+                    or_(
+                        User.phone_number == phone,
+                        User.username == phone,
+                        User.phone_number == last10 if last10 else False,
+                        User.phone_number == f"+91{last10}" if last10 else False,
+                        User.phone_number.endswith(last10) if len(last10) == 10 else False,
+                    )
+                )
             )
-        ).scalar_one_or_none()
+        ).scalars().first()
 
         if existing:
             existing.name = name if name != "User" else existing.name
@@ -149,18 +160,35 @@ async def _create_user(state: ConversationState) -> str:
             await db.commit()
             return str(existing.id)
 
-        user = User(
-            phone_number=phone,
-            name=name,
-            gender=gender,
-            block=block,
-            pincode=pincode if pincode else None,
-            consent_given=True,
-            consent_given_at=datetime.now(timezone.utc),
-            verification_status="verified",
-            user_type="shg_member",
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return str(user.id)
+        try:
+            user = User(
+                phone_number=phone,
+                name=name,
+                gender=gender,
+                block=block,
+                pincode=pincode if pincode else None,
+                consent_given=True,
+                consent_given_at=datetime.now(timezone.utc),
+                verification_status="verified",
+                user_type="shg_member",
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            return str(user.id)
+        except Exception:
+            await db.rollback()
+            # If insert failed due to concurrent creation or conflict, fetch existing
+            fallback_user = (
+                await db.execute(
+                    select(User).where(
+                        or_(
+                            User.phone_number.endswith(last10) if len(last10) == 10 else False,
+                            User.username == phone,
+                        )
+                    )
+                )
+            ).scalars().first()
+            if fallback_user:
+                return str(fallback_user.id)
+            return "session_user"
