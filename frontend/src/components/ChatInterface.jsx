@@ -40,7 +40,7 @@ const ACTION_CHIPS = [
 ];
 
 /* ─── Main Chat Interface Component ────────────────────────── */
-export default function ChatInterface({ userProfile }) {
+export default function ChatInterface({ userProfile, onSessionExpired }) {
   const storageKey = `ai_sathi_chat_messages_${userProfile?.phone || 'guest'}`;
 
   const [messages, setMessages] = useState(() => {
@@ -157,6 +157,17 @@ export default function ChatInterface({ userProfile }) {
         headers,
         body: JSON.stringify({ user_phone: userProfile?.phone, text }),
       });
+
+      if (res.status === 401) {
+        if (onSessionExpired) onSessionExpired();
+        addMessage({
+          sender: 'ai',
+          text: '⚠️ আপনার সেশনের মেয়াদ শেষ হয়েছে। অনুগ্রহ করে আবার লগইন করুন।',
+          type: 'text',
+        });
+        return;
+      }
+
       const data = await res.json();
 
       if (data.messages && data.messages.length > 0) {
@@ -266,6 +277,11 @@ export default function ChatInterface({ userProfile }) {
         headers,
         body: formData,
       });
+
+      if (res.status === 401) {
+        if (onSessionExpired) onSessionExpired();
+        return;
+      }
 
       const voiceData = await res.json();
 

@@ -75,7 +75,7 @@ export default function App() {
       />
 
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <ChatInterface userProfile={userProfile} />
+        <ChatInterface userProfile={userProfile} onSessionExpired={handleLogout} />
       </main>
 
       <LedgerDrawer isOpen={ledgerOpen} onClose={() => setLedgerOpen(false)} userProfile={userProfile} />

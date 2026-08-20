@@ -18,6 +18,10 @@ logger = logging.getLogger("api_router")
 router = APIRouter(prefix="/api/v1", tags=["Web Platform API"])
 
 
+def _get_jwt_secret() -> str:
+    return os.environ.get("JWT_SECRET_KEY") or os.environ.get("JWT_SECRET") or "super-secret-jwt-key-for-ai-sathi-platform"
+
+
 def get_current_user_phone(authorization: str = Header(None)) -> str:
     """
     Dependency to extract and validate the JWT token from the Authorization header.
@@ -26,7 +30,7 @@ def get_current_user_phone(authorization: str = Header(None)) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
     token = authorization.split(" ")[1]
-    secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
+    secret = _get_jwt_secret()
     try:
         payload = jwt.decode(token, secret, algorithms=["HS256"])
         phone = payload.get("sub")
@@ -90,7 +94,7 @@ async def register_user(payload: RegisterRequest) -> dict:
     phone = digits[-10:] if len(digits) >= 10 else f"web_{username[:15]}"
 
     pwd_hash = hash_password(password)
-    secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
+    secret = _get_jwt_secret()
     token_exp = datetime.now(timezone.utc) + timedelta(days=7)
 
     async with get_db_session() as db:
@@ -261,6 +265,7 @@ async def login_user(payload: LoginRequest) -> dict:
         else:
             raise HTTPException(status_code=500, detail="ডাটাবেজ সংযোগে সমস্যা হচ্ছে। একটু পরে চেষ্টা করুন।")
 
+    secret = _get_jwt_secret()
     token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
     return {"status": "success", "user": profile, "token": token}
 
