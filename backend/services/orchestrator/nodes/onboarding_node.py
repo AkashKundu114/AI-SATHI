@@ -60,18 +60,19 @@ async def onboarding_node(state: ConversationState) -> dict:
         return {
             "onboarding_name": text,
             "onboarding_step": "AWAIT_BLOCK",
-            "outbound_messages": [{"type": "text", "body": f"{address}, আপনি কোন ব্লকে থাকেন?"}],
+            "outbound_messages": [{"type": "text", "body": f"{address}, আপনার এলাকার পিনকোড (Pincode) কত?"}],
             "trace": ["onboarding_node:got_name"],
         }
 
-    if step == "AWAIT_BLOCK":
+    if step == "AWAIT_BLOCK" or step == "AWAIT_PINCODE":
         if not text:
             return {
-                "outbound_messages": [{"type": "text", "body": "আপনার ব্লকের নাম লিখুন।"}],
+                "outbound_messages": [{"type": "text", "body": "আপনার এলাকার পিনকোড (Pincode) লিখুন বা বলুন।"}],
                 "trace": ["onboarding_node:empty_block"],
             }
         return {
             "onboarding_block": text,
+            "onboarding_pincode": text,
             "onboarding_step": "AWAIT_CONSENT",
             "outbound_messages": [
                 {
@@ -118,18 +119,42 @@ async def onboarding_node(state: ConversationState) -> dict:
 async def _create_user(state: ConversationState) -> str:
     from datetime import datetime, timezone
 
+    from sqlalchemy import or_, select
+
     from shared.db.models import User
     from shared.db.session import get_db_session
 
     name = state.get("onboarding_name") or "User"
     gender = "male" if any(m in name.lower() for m in ["akash", "kundu", "admin", "rahul", "sourav", "আকাশ"]) else "other"
+    phone = state.get("phone_number") or state.get("user_id") or "+919876543210"
+    block = state.get("onboarding_block") or "সিঙ্গুর"
+    pincode_raw = state.get("onboarding_pincode") or state.get("onboarding_block") or ""
+    pincode = "".join(filter(str.isdigit, pincode_raw))[:6]
 
     async with get_db_session() as db:
+        existing = (
+            await db.execute(
+                select(User).where(or_(User.phone_number == phone, User.username == phone))
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+            existing.name = name if name != "User" else existing.name
+            existing.gender = gender or existing.gender
+            existing.block = block or existing.block
+            if pincode:
+                existing.pincode = pincode
+            existing.consent_given = True
+            existing.consent_given_at = datetime.now(timezone.utc)
+            await db.commit()
+            return str(existing.id)
+
         user = User(
-            phone_number=state.get("phone_number") or state.get("user_id") or "+919876543210",
+            phone_number=phone,
             name=name,
             gender=gender,
-            block=state.get("onboarding_block"),
+            block=block,
+            pincode=pincode if pincode else None,
             consent_given=True,
             consent_given_at=datetime.now(timezone.utc),
             verification_status="verified",

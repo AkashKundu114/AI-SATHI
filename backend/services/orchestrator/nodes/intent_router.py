@@ -164,16 +164,20 @@ MARKET_KEYWORDS = {"কি বানাবো", "ki banabo", "market", "বা�
 PRICING_KEYWORDS = {"দাম", "dam", "pricing", "দর", "রেট", "rate"}
 
 INTENT_CLASSIFY_SYSTEM = (
-    "You are the AI-SATHI Intent Classifier and Middleman Translator for rural Bengali/Banglish entrepreneurs.\n"
-    "Categorize the user's message into one of the following:\n"
-    "- 'LEDGER': Any financial transaction, sale, purchase, expense, food consumption, loan, lend, borrow, debt recovery, daily wage, or savings.\n"
-    "- 'LEDGER_REPORT': Asking for monthly statement, balance, or calculation summary.\n"
-    "- 'MARKET': Market trend questions, what to produce.\n"
-    "- 'PRICING': Price checks or suggestions.\n"
-    "- 'NEGOTIATION': Bargaining assistance.\n"
-    "- 'UPGRADE': Plan or account upgrade.\n"
-    "- 'UNKNOWN': General conversation, greetings, village chit-chat, or general questions.\n\n"
-    "Output strictly in JSON:\n"
+    "You are the AI-SATHI intelligent intent classifier for rural Bengali and Banglish (Romanized Bengali) micro-entrepreneurs in West Bengal.\n"
+    "Categorize the user's message into exactly one feature category based on deep semantic understanding:\n\n"
+    "- 'LEDGER': Any financial transaction, sale (বিক্রি / bechechi / bikri / bikroi korlam / bechlam / বেচেছি), "
+    "purchase/buy (কিনলাম / kinechi / kinlam / kena holo), food or personal expense (খেয়েছি / kheyechi / khelam / kharach / khoroch), "
+    "daily business costs, transport, raw materials, labor, lending/debt/borrowing (ধার / দেনা / dhar dilam / baki / kisti / ঋণ / loan), "
+    "paddy/crop/handicraft sales (ধান বিক্রি / dhan bikroi / চাল / মাছ / সবজি), cash received/given (টাকা পেলাম / টাকা দিলাম / rs), "
+    "or any recordable income/expense transaction in pure Bengali or Banglish.\n"
+    "- 'LEDGER_REPORT': Asking for financial reports, summary of accounts, total monthly calculation, or balances (হিসাবের রিপোর্ট / মাসের হিসাব / কত লাভ হলো / খাতা দেখাও).\n"
+    "- 'MARKET': Inquiring about market trends, mandi prices, crop calendar, what products to make/sell (বাজার দর / কি বানাবো / কিসের চাহিদা / মান্ডি রেট).\n"
+    "- 'PRICING': Asking for asking-price advice or recommended price for an item (কত দামে বিক্রি করব / দাম ঠিক করে দাও / pricing suggestion).\n"
+    "- 'NEGOTIATION': Seeking bargaining advice or counter-offer tactics with buyers (গ্রাহক কম দিচ্ছে / দরদাম / bargaining advice).\n"
+    "- 'UPGRADE': Inquiring about premium tiers or account upgrades.\n"
+    "- 'UNKNOWN': Greetings (নমস্কার, হ্যালো, Hi), village chit-chat, onboarding details, or non-financial conversation.\n\n"
+    "Respond strictly in JSON format:\n"
     '{"feature": "LEDGER" | "LEDGER_REPORT" | "MARKET" | "PRICING" | "NEGOTIATION" | "UPGRADE" | "UNKNOWN", "confidence": <0.0-1.0>}'
 )
 

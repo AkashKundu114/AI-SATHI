@@ -12,9 +12,26 @@ async def load_user_profile_node(state: ConversationState) -> dict:
     phone_number = state.get("phone_number") or state.get("user_id") or "+919876543210"
     db_error = False
 
+    from sqlalchemy import or_
+
+    digits = "".join(filter(str.isdigit, str(phone_number)))
+    last10 = digits[-10:] if len(digits) >= 10 else digits
+
     try:
         async with get_db_session() as db:
-            user = (await db.execute(select(User).where(User.phone_number == phone_number))).scalar_one_or_none()
+            user = (
+                await db.execute(
+                    select(User).where(
+                        or_(
+                            User.phone_number == phone_number,
+                            User.username == phone_number,
+                            User.phone_number == last10 if last10 else False,
+                            User.phone_number == f"+91{last10}" if last10 else False,
+                            User.phone_number.endswith(last10) if len(last10) == 10 else False,
+                        )
+                    )
+                )
+            ).scalar_one_or_none()
     except Exception:
         db_error = True
         user = None
