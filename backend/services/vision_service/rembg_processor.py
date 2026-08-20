@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 
-from PIL import Image
+from PIL import Image, ImageFile
 from rembg import new_session, remove
 
 _session = None
@@ -14,6 +14,7 @@ MIN_RESOLUTION_PX = 300
 MAX_PIXELS = 30_000_000
 
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+ImageFile.LOAD_TRUNCATED_IMAGES = False
 
 
 def _get_session():
@@ -46,6 +47,9 @@ def _gradient_background(size: tuple[int, int]) -> Image.Image:
 
 
 def process_product_image(raw_bytes: bytes) -> tuple[bytes | None, str | None]:
+    if not raw_bytes or len(raw_bytes) < 100:
+        return None, "ছবিটা খুলতে পারলাম না। আবার পাঠান।"
+
     try:
         probe = Image.open(io.BytesIO(raw_bytes))
         probe.verify()
@@ -53,8 +57,9 @@ def process_product_image(raw_bytes: bytes) -> tuple[bytes | None, str | None]:
         return None, "ছবিটা খুলতে পারলাম না। আবার পাঠান।"
 
     try:
-        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+        img = Image.open(io.BytesIO(raw_bytes))
         img.load()
+        img = img.convert("RGB")
     except Image.DecompressionBombError:
         return None, "ছবিটা অস্বাভাবিক বড় মাপের। অন্য ছবি পাঠান।"
     except Exception:
@@ -66,7 +71,10 @@ def process_product_image(raw_bytes: bytes) -> tuple[bytes | None, str | None]:
 
     try:
         cutout = remove(raw_bytes, session=_get_session())
+        if not cutout:
+            return None, "ছবি প্রসেস করতে সমস্যা হয়েছে। আবার পাঠান।"
         cutout_img = Image.open(io.BytesIO(cutout)).convert("RGBA")
+        cutout_img.load()
         background = _gradient_background(cutout_img.size).convert("RGBA")
         composite = Image.alpha_composite(background, cutout_img).convert("RGB")
     except Exception:
