@@ -41,18 +41,59 @@ const ACTION_CHIPS = [
 
 /* ─── Main Chat Interface Component ────────────────────────── */
 export default function ChatInterface({ userProfile }) {
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      sender: 'ai',
-      text: `নমস্কার ${userProfile?.name || 'উদ্যোক্তা'}! 🙏\n\nআমি আপনার AI-SATHI সহকারী। আপনার আয়, ব্যয়, ধার, ঋণ বা কিস্তির হিসাব মুখে বলে বা লিখে সহজেই ডিজিটাল খাতায় সংরক্ষণ করতে পারেন।\n\nযেমন বলুন: "মোমো খেয়েছি ৫০ টাকা" বা "চেয়ার বিক্রি করেছি ৬০০ টাকা"।`,
-      type: 'text',
-      timestamp: new Date(),
-    },
-  ]);
+  const storageKey = `ai_sathi_chat_messages_${userProfile?.phone || 'guest'}`;
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`ai_sathi_chat_messages_${userProfile?.phone || 'guest'}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return [
+      {
+        id: 'welcome',
+        sender: 'ai',
+        text: `নমস্কার ${userProfile?.name || 'উদ্যোক্তা'}! 🙏\n\nআমি আপনার AI-SATHI সহকারী। আপনার আয়, ব্যয়, ধার, ঋণ বা কিস্তির হিসাব মুখে বলে বা লিখে সহজেই ডিজিটাল খাতায় সংরক্ষণ করতে পারেন।\n\nযেমন বলুন: "মোমো খেয়েছি ৫০ টাকা" বা "চেয়ার বিক্রি করেছি ৬০০ টাকা"।`,
+        type: 'text',
+        timestamp: new Date(),
+      },
+    ];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch {
+      // ignore
+    }
+  }, [messages, storageKey]);
+
+  const clearChatHistory = () => {
+    const defaultMsg = [
+      {
+        id: 'welcome-' + Date.now(),
+        sender: 'ai',
+        text: `নমস্কার ${userProfile?.name || 'উদ্যোক্তা'}! 🙏\n\nআমি আপনার AI-SATHI সহকারী। আপনার নতুন হিসাব মুখে বলে বা লিখে শুরু করুন।`,
+        type: 'text',
+        timestamp: new Date(),
+      },
+    ];
+    setMessages(defaultMsg);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // ignore
+    }
+  };
 
   // Past ledger records tracking state
   const [ledgerEntries, setLedgerEntries] = useState([]);
@@ -330,6 +371,15 @@ export default function ChatInterface({ userProfile }) {
               <span>{chip.label}</span>
             </button>
           ))}
+          <button
+            className="chip-pill"
+            style={{ marginLeft: 'auto', opacity: 0.75 }}
+            onClick={clearChatHistory}
+            title="নতুন চ্যাট শুরু করুন"
+          >
+            <Trash2 size={12} style={{ marginRight: '4px' }} />
+            <span>নতুন আলাপ</span>
+          </button>
         </div>
 
         {/* Messages Stream */}
