@@ -3,51 +3,45 @@ from __future__ import annotations
 from services.orchestrator.state import ConversationState
 
 WELCOME = (
-    "🙏 AI-সাথীতে আপনাকে স্বাগতম!\n\nআমি আপনার ব্যবসার হিসাব রাখব, পণ্যের বিজ্ঞাপন বানাব, আর বাজারের পরামর্শ দেব।\n\nশুরু করতে আপনার নাম বলুন।"
+    "🙏 AI-সাথীতে আপনাকে স্বাগতম!\n\n"
+    "আমি আপনার ব্যবসার হিসাব রাখব, পণ্যের বিজ্ঞাপন বানাব, আর বাজারের পরামর্শ দেব।\n\n"
+    "শুরু করতে আপনার নাম বলুন।"
 )
 
 _MAX_FIELD_LEN = 100
 
 
-def get_honorific(name: str | None, gender: str | None = None) -> str:
+def get_honorific(name: str, gender: str | None = None) -> str:
     """
-    Returns appropriate respectful Bengali address:
+    Returns appropriate respectful address:
     - Male: '<Name> দা' / '<Name> বাবু'
     - Female: '<Name> দি'
-    - Default/Unknown: '<Name>' or '<Name> বাবু'
     """
-    if not name:
-        return ""
-    clean_name = name.strip()
-    first_name = clean_name.split()[0]
-
-    # Infer male from common Bengali male names or gender setting
+    clean = name.strip()
     is_male = gender == "male" or any(
-        m in clean_name.lower()
-        for m in ["akash", "rahul", "sourav", "subhash", "amit", "debashis", "swapan", "bikash", "arjun", "admin"]
+        m in clean.lower()
+        for m in [
+            "akash",
+            "rahul",
+            "sourav",
+            "subhash",
+            "amit",
+            "debashis",
+            "swapan",
+            "bikash",
+            "arjun",
+            "admin",
+            "আকাশ",
+        ]
     )
     if is_male:
-        return f"{first_name} দা"
-    if gender == "female":
-        return f"{first_name} দি"
-    return clean_name
+        return f"{clean} দা"
+    return f"{clean} দি"
 
 
 async def onboarding_node(state: ConversationState) -> dict:
-    step = state.get("onboarding_step", "WELCOME")
-    raw_text = (state.get("raw_input_text") or state.get("raw_input_transcript") or "").strip()[:_MAX_FIELD_LEN]
-
-    # If incoming text looks like a financial entry, skip onboarding questionnaire immediately
-    txn_indicators = ["bikri", "বিক্রি", "kinechi", "কিনলাম", "dhar", "ধার", "taka", "টাকা", "dhan", "ধান", "er", "এর"]
-    if any(ind in raw_text.lower() for ind in txn_indicators):
-        user_id = await _create_user(state)
-        return {
-            "user_id": user_id,
-            "is_new_user": False,
-            "onboarding_step": "DONE",
-            "active_feature": "LEDGER",
-            "trace": ["onboarding_node:bypassed_for_transaction"],
-        }
+    step = state.get("onboarding_step") or "WELCOME"
+    text = (state.get("raw_input_text") or state.get("raw_input_transcript") or "").strip()[:_MAX_FIELD_LEN]
 
     if step == "WELCOME":
         return {
@@ -57,75 +51,91 @@ async def onboarding_node(state: ConversationState) -> dict:
         }
 
     if step == "AWAIT_NAME":
-        if not raw_text:
+        if not text:
             return {
                 "outbound_messages": [{"type": "text", "body": "আপনার নাম বলুন বা লিখুন।"}],
                 "trace": ["onboarding_node:empty_name"],
             }
-
-        address = get_honorific(raw_text)
+        address = get_honorific(text)
         return {
-            "onboarding_name": raw_text,
-            "onboarding_step": "AWAIT_DETAILS",
-            "outbound_messages": [
-                {
-                    "type": "text",
-                    "body": f"নমস্কার {address}! আপনার পিনকোড (Pincode) লিখুন (এবং স্বনির্ভর দলের সদস্য হলে SHG Registration No. দিতে পারেন)।",
-                }
-            ],
+            "onboarding_name": text,
+            "onboarding_step": "AWAIT_BLOCK",
+            "outbound_messages": [{"type": "text", "body": f"{address}, আপনি কোন ব্লকে থাকেন?"}],
             "trace": ["onboarding_node:got_name"],
         }
 
-    if step == "AWAIT_DETAILS":
-        pincode = "".join(filter(str.isdigit, raw_text))[:6]
-        user_id = await _create_user(state, pincode=pincode if len(pincode) == 6 else "")
+    if step == "AWAIT_BLOCK":
+        if not text:
+            return {
+                "outbound_messages": [{"type": "text", "body": "আপনার ব্লকের নাম লিখুন।"}],
+                "trace": ["onboarding_node:empty_block"],
+            }
+        return {
+            "onboarding_block": text,
+            "onboarding_step": "AWAIT_CONSENT",
+            "outbound_messages": [
+                {
+                    "type": "text",
+                    "body": (
+                        "AI-সাথী ব্যবহারের আগে:\n"
+                        "✅ আপনার হিসাব শুধু আপনি দেখতে পাবেন\n"
+                        "✅ কোনো ব্যক্তিগত তথ্য বিক্রি হবে না\n"
+                        "✅ ভয়েস মেসেজ প্রসেসিংয়ের পরপরই মুছে ফেলা হয়\n\n"
+                        "রাজি থাকলে 'হ্যাঁ' লিখুন।"
+                    ),
+                }
+            ],
+            "trace": ["onboarding_node:got_block"],
+        }
+
+    if step == "AWAIT_CONSENT":
+        if text.lower() not in {"হ্যাঁ", "হ্যা", "ha", "haan", "yes"}:
+            return {
+                "outbound_messages": [{"type": "text", "body": "রাজি হলে 'হ্যাঁ' লিখুন, তাহলে শুরু করতে পারব।"}],
+                "trace": ["onboarding_node:consent_not_given"],
+            }
+        try:
+            user_id = await _create_user(state)
+        except Exception:
+            return {
+                "outbound_messages": [{"type": "text", "body": "একটু সমস্যা হয়েছে। একটু পরে আবার 'হ্যাঁ' লিখুন।"}],
+                "trace": ["onboarding_node:create_user_failed"],
+            }
         return {
             "user_id": user_id,
             "is_new_user": False,
             "onboarding_step": "DONE",
-            "outbound_messages": [
-                {
-                    "type": "text",
-                    "body": "✨ আপনার AI-সাথী প্রোফাইল প্রস্তুত! আজকের বিক্রি, খরচ বা ধারের হিসাব বলুন বা লিখুন। 🎙️",
-                }
-            ],
+            "outbound_messages": [{"type": "text", "body": "✨ আপনার AI-সাথী তৈরি! আজকের বিক্রি বা খরচ ভয়েসে বলুন। 🎙️"}],
             "trace": ["onboarding_node:complete"],
         }
 
     return {
-        "onboarding_step": "DONE",
-        "is_new_user": False,
-        "outbound_messages": [{"type": "text", "body": "আজকের হিসাব বলুন বা লিখুন। 🎙️"}],
+        "outbound_messages": [{"type": "text", "body": "শুরু করতে 'শুরু' লিখুন।"}],
         "trace": ["onboarding_node:already_done"],
     }
 
 
-async def _create_user(state: ConversationState, pincode: str = "") -> str:
+async def _create_user(state: ConversationState) -> str:
     from datetime import datetime, timezone
 
     from shared.db.models import User
     from shared.db.session import get_db_session
 
-    phone = state.get("phone_number") or state.get("user_id") or "9064349004"
-    name = state.get("onboarding_name") or ("Akash Kundu" if "9064349004" in phone else "Micro-Entrepreneur")
-    gender = "male" if any(m in name.lower() for m in ["akash", "kundu", "admin", "rahul", "sourav"]) else "other"
+    name = state.get("onboarding_name") or "User"
+    gender = "male" if any(m in name.lower() for m in ["akash", "kundu", "admin", "rahul", "sourav", "আকাশ"]) else "other"
 
     async with get_db_session() as db:
         user = User(
-            phone_number=phone,
+            phone_number=state.get("phone_number") or state.get("user_id") or "+919876543210",
             name=name,
             gender=gender,
-            pincode=pincode,
+            block=state.get("onboarding_block"),
             consent_given=True,
             consent_given_at=datetime.now(timezone.utc),
             verification_status="verified",
             user_type="shg_member",
         )
         db.add(user)
-        try:
-            await db.commit()
-            await db.refresh(user)
-            return str(user.id)
-        except Exception:
-            await db.rollback()
-            return "session_user"
+        await db.commit()
+        await db.refresh(user)
+        return str(user.id)
