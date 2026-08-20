@@ -53,7 +53,7 @@ def render_metrics_html_report(metrics: dict) -> str:
             <h1>AI-SATHI Metrics & Health Report</h1>
             <p>Generated on {collected_at} UTC • Month: {month}</p>
         </div>
-        
+
         <div class="content">
             <div class="grid">
                 <div class="card">
@@ -113,7 +113,7 @@ def render_metrics_html_report(metrics: dict) -> str:
                 </tbody>
             </table>
         </div>
-        
+
         <div class="footer">
             AI-SATHI Autonomous Monitoring • Confidential System Telemetry
         </div>

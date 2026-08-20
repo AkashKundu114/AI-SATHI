@@ -54,6 +54,7 @@ def process_product_image(raw_bytes: bytes) -> tuple[bytes | None, str | None]:
 
     try:
         img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+        img.load()
     except Image.DecompressionBombError:
         return None, "ছবিটা অস্বাভাবিক বড় মাপের। অন্য ছবি পাঠান।"
     except Exception:

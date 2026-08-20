@@ -36,9 +36,7 @@ async def _download(media_id: str, max_bytes: int | None = None) -> bytes:
                     pass
 
             download_url = meta["url"]
-            media_resp = await client.get(
-                download_url, headers={"Authorization": f"Bearer {s.wa_access_token}"}
-            )
+            media_resp = await client.get(download_url, headers={"Authorization": f"Bearer {s.wa_access_token}"})
             media_resp.raise_for_status()
 
             if max_bytes and len(media_resp.content) > max_bytes:

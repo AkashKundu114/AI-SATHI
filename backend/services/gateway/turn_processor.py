@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from shared.web.sender import send_text
-
 from services.orchestrator.graph import get_compiled_graph
+from shared.web.sender import send_text
 
 logger = logging.getLogger("turn_processor")
 

@@ -44,15 +44,10 @@ def parse_webhook_payload(payload: dict) -> Optional[IncomingMessage]:
         elif msg["type"] == "image":
             base.image_id = msg.get("image", {}).get("id")
             base.caption = msg.get("image", {}).get("caption")
-        elif (
-            msg["type"] == "interactive"
-            and msg.get("interactive", {}).get("type") == "nfm_reply"
-        ):
+        elif msg["type"] == "interactive" and msg.get("interactive", {}).get("type") == "nfm_reply":
             import json
 
-            base.interactive_payload = json.loads(
-                msg["interactive"]["nfm_reply"]["response_json"]
-            )
+            base.interactive_payload = json.loads(msg["interactive"]["nfm_reply"]["response_json"])
 
         return base
     except (KeyError, IndexError, TypeError, ValueError):

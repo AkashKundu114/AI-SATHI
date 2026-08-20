@@ -56,9 +56,7 @@ def _user(**overrides):
 async def test_new_user_not_found_returns_is_new_user_true(monkeypatch):
     monkeypatch.setattr(node_module, "get_db_session", _fake_get_db_session(user=None))
 
-    result = await node_module.load_user_profile_node(
-        {"phone_number": "919876543210"}
-    )
+    result = await node_module.load_user_profile_node({"phone_number": "919876543210"})
     assert result["is_new_user"] is True
     assert result["user_id"] is None
     assert result["user_profile"] is None
@@ -73,9 +71,7 @@ async def test_db_error_is_treated_as_new_user_not_a_crash(monkeypatch):
         _fake_get_db_session(raise_exc=RuntimeError("db down")),
     )
 
-    result = await node_module.load_user_profile_node(
-        {"phone_number": "919876543210"}
-    )
+    result = await node_module.load_user_profile_node({"phone_number": "919876543210"})
     assert result["is_new_user"] is True
     assert result["trace"] == ["load_user_profile:db_error_treated_as_new_user"]
 
@@ -86,9 +82,7 @@ async def test_existing_user_returns_full_profile(monkeypatch):
         node_module, "get_db_session", _fake_get_db_session(user=_user())
     )
 
-    result = await node_module.load_user_profile_node(
-        {"phone_number": "919876543210"}
-    )
+    result = await node_module.load_user_profile_node({"phone_number": "919876543210"})
     assert result["is_new_user"] is False
     assert result["user_id"] == "uuid-1234"
     assert result["user_profile"]["block"] == "Balidewanganj"
@@ -104,9 +98,7 @@ async def test_null_business_categories_defaults_to_empty_list(monkeypatch):
         _fake_get_db_session(user=_user(business_categories=None)),
     )
 
-    result = await node_module.load_user_profile_node(
-        {"phone_number": "919876543210"}
-    )
+    result = await node_module.load_user_profile_node({"phone_number": "919876543210"})
     assert result["user_profile"]["business_categories"] == []
 
 
@@ -118,7 +110,5 @@ async def test_null_correction_rate_defaults_to_zero(monkeypatch):
         _fake_get_db_session(user=_user(ledger_correction_rate=None)),
     )
 
-    result = await node_module.load_user_profile_node(
-        {"phone_number": "919876543210"}
-    )
+    result = await node_module.load_user_profile_node({"phone_number": "919876543210"})
     assert result["user_profile"]["ledger_correction_rate"] == 0.0

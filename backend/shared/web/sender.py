@@ -1,6 +1,8 @@
 import logging
 import uuid
+
 import httpx
+
 from shared.config.settings import get_settings
 
 logger = logging.getLogger("web_sender")

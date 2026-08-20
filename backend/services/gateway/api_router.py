@@ -8,6 +8,7 @@ from typing import Any
 
 import jwt
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from shared.security.input_sanitizer import sanitize_text_input
@@ -36,9 +37,6 @@ def get_current_user_phone(authorization: str = Header(None)) -> str:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-
-
-from pydantic import BaseModel
 
 
 def _format_multi_coherence_response(primary_text: str, feature_context: str = "general") -> str:

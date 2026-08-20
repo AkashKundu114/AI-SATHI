@@ -1,27 +1,27 @@
-from fastapi import FastAPI, Request, BackgroundTasks, HTTPException, Response
-import hmac
+import asyncio
 import hashlib
+import hmac
 import json
-import uuid
 import logging
+import os
+import sys
+import uuid
 
-from shared.config.settings import get_settings
-from shared.storage.blob_client import upload_bytes
-from shared.db.dedup import mark_seen_or_skip, check_and_increment_rate_limit
-from shared.web.parser import parse_webhook_payload
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
+
 from services.gateway.turn_processor import process_turn_and_dispatch
 from services.voice_gateway.provider_cascade import transcribe
+from shared.config.settings import get_settings
+from shared.db.dedup import check_and_increment_rate_limit, mark_seen_or_skip
+from shared.security.audit_log import log_security_event
+from shared.security.input_sanitizer import sanitize_text_input, validate_phone_number
+from shared.storage.blob_client import upload_bytes
 from shared.web.media import (
     MediaTooLargeError,
     download_web_audio,
     download_web_image,
 )
-from shared.security.audit_log import log_security_event
-from shared.security.input_sanitizer import sanitize_text_input, validate_phone_number
-
-import os
-import sys
-import asyncio
+from shared.web.parser import parse_webhook_payload
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -74,8 +74,8 @@ async def trigger_metrics_email(request: Request, background_tasks: BackgroundTa
 
 
 async def _collect_and_send_metrics(recipient: str | None = None):
-    from shared.observability.metrics import collect_system_metrics
     from shared.observability.email_reporter import send_metrics_email
+    from shared.observability.metrics import collect_system_metrics
 
     metrics = await collect_system_metrics()
     await send_metrics_email(metrics, recipient_email=recipient)

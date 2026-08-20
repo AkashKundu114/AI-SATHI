@@ -66,7 +66,7 @@ async def check_and_increment_api_usage(user_id: str | None, provider: str) -> t
                         """
                         INSERT INTO api_usage (user_id, provider, month_bucket, current_usage)
                         VALUES (:uid, :provider, :month, 1)
-                        ON CONFLICT (user_id, provider, month_bucket) 
+                        ON CONFLICT (user_id, provider, month_bucket)
                         DO UPDATE SET current_usage = api_usage.current_usage + 1
                         RETURNING current_usage
                         """

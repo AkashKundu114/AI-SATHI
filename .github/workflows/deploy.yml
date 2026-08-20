@@ -30,6 +30,21 @@ jobs:
           OWNER: ${{ github.repository_owner }}
 
       - name: Build and push image
+        id: build_image
+        uses: docker/build-push-action@v6
+        continue-on-error: true
+        with:
+          context: .
+          file: backend/services/gateway/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/ai-sathi:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/ai-sathi:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Retry build and push if initial attempt failed
+        if: steps.build_image.outcome != 'success'
         uses: docker/build-push-action@v6
         with:
           context: .
