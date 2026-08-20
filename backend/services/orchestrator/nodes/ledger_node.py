@@ -442,14 +442,15 @@ async def ledger_extract_node(state: ConversationState) -> dict:
 def _build_confirmation_message(pending: dict, transcript: str) -> dict:
     s = get_settings()
     body_text = _build_confirmation_text(pending)
+    flow_id = getattr(s, "wa_ledger_confirm_flow_id", "")
 
-    if not s.wa_ledger_confirm_flow_id:
+    if not flow_id:
         return {"type": "text", "body": body_text}
 
     income_lines, expense_lines, net_profit_line = _confirmation_lines(pending)
     return {
         "type": "flow",
-        "flow_id": s.wa_ledger_confirm_flow_id,
+        "flow_id": flow_id,
         "header_text": "হিসাব নিশ্চিতকরণ",
         "body_text": "আপনার হিসাবের বিবরণ নিচে দেওয়া হলো:",
         "cta_text": "নিশ্চিত করুন",

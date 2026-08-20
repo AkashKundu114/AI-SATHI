@@ -43,111 +43,164 @@ def _format_multi_coherence_response(primary_text: str, feature_context: str = "
     return primary_text.strip()
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    name: str | None = None
+    phone: str | None = None
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
 
-@router.post("/auth/request-otp")
-async def request_otp(payload: dict):
-    return {"status": "success", "message": "OTP disabled. Use username & password to login."}
+@router.post("/auth/register")
+async def register_user(payload: RegisterRequest) -> dict:
+    """
+    Registers a new user with a unique username and securely hashed password.
+    Returns a JWT token and user profile upon successful registration.
+    """
+    username = payload.username.strip().lower()
+    password = payload.password.strip()
+    name = payload.name.strip() if payload.name else "নতুন ব্যবহারকারী"
+    raw_phone = payload.phone.strip() if payload.phone else ""
+
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters long.")
+    if len(password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters long.")
+
+    from sqlalchemy import or_, select
+
+    from shared.db.models import User
+    from shared.db.session import get_db_session
+    from shared.security.password_hasher import hash_password
+
+    # Generate or normalize a phone identifier
+    digits = "".join(filter(str.isdigit, raw_phone))
+    phone = digits[-10:] if len(digits) >= 10 else f"web_{username[:15]}"
+
+    pwd_hash = hash_password(password)
+    secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
+    token_exp = datetime.now(timezone.utc) + timedelta(days=7)
+
+    async with get_db_session() as db:
+        existing = (
+            await db.execute(
+                select(User).where(or_(User.username == username, User.phone_number == phone))
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Username or phone number already registered. Please sign in."
+            )
+
+        new_user = User(
+            username=username,
+            password_hash=pwd_hash,
+            phone_number=phone,
+            name=name,
+            verification_status="verified",
+            user_type="shg_member",
+        )
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+
+        profile = {
+            "id": str(new_user.id),
+            "username": new_user.username,
+            "phone": new_user.phone_number,
+            "name": new_user.name,
+            "shg_name": "Not specified",
+            "district": getattr(new_user, "district", None) or "West Bengal",
+            "block": getattr(new_user, "block", None) or "Rural Block",
+            "user_type": getattr(new_user, "user_type", None) or "shg_member",
+        }
+
+    token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
+    return {"status": "success", "user": profile, "token": token}
 
 
 @router.post("/auth/login")
 async def login_user(payload: LoginRequest) -> dict:
     """
-    Authenticates a user via username and password.
+    Authenticates a user via username and password using secure PBKDF2-HMAC password hashing.
     Returns a JWT token on success.
     """
-    username = payload.username.strip()
+    username = payload.username.strip().lower()
     password = payload.password.strip()
-    expected_password = os.environ.get("ADMIN_PASSWORD", "admin")
-    if password != expected_password:
-        logger.warning(f"Failed login attempt for user: {username}")
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    phone = "9064349004" if username == "admin" else username
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Please provide both username and password.")
+
+    expected_admin_pwd = os.environ.get("ADMIN_PASSWORD", "admin")
     secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
     token_exp = datetime.now(timezone.utc) + timedelta(days=7)
 
-    try:
-        from sqlalchemy import select, text
+    from sqlalchemy import or_, select
 
-        from shared.db.models import User
-        from shared.db.session import get_db_session
+    from shared.db.models import User
+    from shared.db.session import get_db_session
+    from shared.security.password_hasher import hash_password, verify_password
 
-        profile = None
-        async with get_db_session() as db:
-            try:
-                user = (await db.execute(select(User).where(User.phone_number == phone))).scalar_one_or_none()
-            except SQLAlchemyError:
-                await db.rollback()
-                # Fallback for un-migrated tables with whatsapp_number column
-                row = (
-                    await db.execute(
-                        text(
-                            "SELECT id, name, district, block, user_type FROM users WHERE whatsapp_number = :p"
-                        ),
-                        {"p": phone},
-                    )
-                ).fetchone()
-                if row:
-                    profile = {
-                        "id": str(row[0]),
-                        "phone": phone,
-                        "name": row[1] or ("Admin User" if phone == "9064349004" else "User"),
-                        "shg_name": "Not specified",
-                        "district": row[2] or "Unknown",
-                        "block": row[3] or "Unknown",
-                        "user_type": row[4] or "shg_member",
-                    }
-                user = None
+    async with get_db_session() as db:
+        user = (
+            await db.execute(
+                select(User).where(or_(User.username == username, User.phone_number == username))
+            )
+        ).scalar_one_or_none()
 
-            if not profile:
-                if not user:
-                    user = User(
-                        phone_number=phone,
-                        name="Admin User" if phone == "9064349004" else "নতুন ব্যবহারকারী",
-                        verification_status="verified",
-                    )
-                    db.add(user)
-                    await db.commit()
-                    await db.refresh(user)
-                elif user.verification_status != "verified":
-                    user.verification_status = "verified"
-                    await db.commit()
-                    await db.refresh(user)
-
-                profile = {
-                    "id": str(user.id),
-                    "phone": getattr(user, "phone_number", None) or phone,
-                    "name": user.name or ("Admin User" if phone == "9064349004" else "User"),
-                    "shg_name": "Not specified",
-                    "district": getattr(user, "district", None) or "Unknown",
-                    "block": getattr(user, "block", None) or "Unknown",
-                    "user_type": getattr(user, "user_type", None) or "shg_member",
-                }
-
-        token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
-        return {"status": "success", "user": profile, "token": token}
-    except SQLAlchemyError as exc:
-        logger.error("Database error during login: %s", exc)
-        # Emergency fallback for Admin on fresh container boot
+        # Handle Admin User special initialization if not yet in database
         if username == "admin":
-            admin_profile = {
-                "id": "admin-local-fallback",
-                "phone": "9064349004",
-                "name": "Admin User",
-                "shg_name": "KothaKhata HQ",
-                "district": "Kolkata",
-                "block": "HQ",
-                "user_type": "admin",
-            }
-            token = jwt.encode({"sub": "9064349004", "exp": token_exp}, secret, algorithm="HS256")
-            return {"status": "success", "user": admin_profile, "token": token}
-        raise HTTPException(status_code=500, detail="Database error occurred.")
-    except Exception as exc:
-        logger.exception("Unexpected login error: %s", exc)
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+            if password != expected_admin_pwd:
+                raise HTTPException(status_code=401, detail="Invalid admin password.")
+
+            if not user:
+                user = User(
+                    username="admin",
+                    password_hash=hash_password(expected_admin_pwd),
+                    phone_number="9064349004",
+                    name="Admin User",
+                    verification_status="verified",
+                    user_type="admin",
+                )
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+            elif not user.password_hash:
+                user.password_hash = hash_password(expected_admin_pwd)
+                await db.commit()
+
+        elif not user:
+            raise HTTPException(status_code=401, detail="Invalid username or password.")
+        else:
+            # Verify password hash
+            if not user.password_hash:
+                # Fallback for unhashed legacy user: compare with default password and upgrade
+                if password != expected_admin_pwd:
+                    raise HTTPException(status_code=401, detail="Invalid username or password.")
+                user.password_hash = hash_password(password)
+                await db.commit()
+            elif not verify_password(password, user.password_hash):
+                raise HTTPException(status_code=401, detail="Invalid username or password.")
+
+        profile = {
+            "id": str(user.id),
+            "username": getattr(user, "username", None) or username,
+            "phone": user.phone_number or "9064349004",
+            "name": user.name or "User",
+            "shg_name": "Not specified",
+            "district": getattr(user, "district", None) or "West Bengal",
+            "block": getattr(user, "block", None) or "Rural Block",
+            "user_type": getattr(user, "user_type", None) or "shg_member",
+        }
+
+    token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
+    return {"status": "success", "user": profile, "token": token}
 
 
 @router.post("/chat")

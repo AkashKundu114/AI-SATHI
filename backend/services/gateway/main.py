@@ -8,6 +8,7 @@ import sys
 import uuid
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse
 
 from services.gateway.turn_processor import process_turn_and_dispatch
 from services.voice_gateway.provider_cascade import transcribe
@@ -53,7 +54,14 @@ async def on_startup():
                         "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'whatsapp_number') "
                         "AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone_number') THEN "
                         "ALTER TABLE users RENAME COLUMN whatsapp_number TO phone_number; "
-                        "END IF; END $$;"
+                        "END IF; "
+                        "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username') THEN "
+                        "ALTER TABLE users ADD COLUMN username VARCHAR(100) UNIQUE; "
+                        "END IF; "
+                        "IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_hash') THEN "
+                        "ALTER TABLE users ADD COLUMN password_hash VARCHAR(255); "
+                        "END IF; "
+                        "END $$;"
                     )
                 )
             except Exception as e:
@@ -70,6 +78,24 @@ MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.svg", include_in_schema=False)
+@app.get("/favicon.png", include_in_schema=False)
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def get_favicon(request: Request):
+    if web_dist_path:
+        filename = request.url.path.lstrip("/")
+        target = os.path.join(web_dist_path, filename)
+        if os.path.isfile(target):
+            media = "image/svg+xml" if filename.endswith(".svg") else ("image/png" if filename.endswith(".png") else "image/x-icon")
+            return FileResponse(target, media_type=media)
+        # Fallback to SVG favicon
+        svg_file = os.path.join(web_dist_path, "favicon.svg")
+        if os.path.isfile(svg_file):
+            return FileResponse(svg_file, media_type="image/svg+xml")
+    return Response(status_code=404)
 
 
 @app.post("/admin/metrics/email")

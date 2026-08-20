@@ -87,11 +87,13 @@ async def _call_local_ollama(system: str, prompt: str) -> tuple[str, float]:
         raise ModelUnavailableError("local Ollama unavailable because httpx is not installed")
 
     s = get_settings()
+    ollama_url = getattr(s, "ollama_base_url", "http://ollama:11434")
+    ollama_model = getattr(s, "ollama_llm_model", "qwen2.5:7b-instruct-q4_K_M")
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.post(
-            f"{s.ollama_base_url}/api/generate",
+            f"{ollama_url}/api/generate",
             json={
-                "model": s.ollama_llm_model,
+                "model": ollama_model,
                 "system": system,
                 "prompt": prompt,
                 "stream": False,
@@ -150,7 +152,7 @@ async def route_completion(
     elif s.sarvam_api_key and _breaker_is_open():
         logger.info("Sarvam circuit breaker open - skipping Sarvam call, going straight to local fallback")
 
-    if s.use_local_models:
+    if getattr(s, "use_local_models", False):
         try:
             text, local_confidence = await _call_local_ollama(system, prompt)
             if local_confidence >= confidence_floor:
@@ -162,7 +164,7 @@ async def route_completion(
             raise ModelUnavailableError(str(exc)) from exc
 
     raise ModelUnavailableError(
-        "Sarvam unavailable/unconfigured and USE_LOCAL_MODELS is false - no fallback tier configured"
+        "Sarvam unavailable/unconfigured - please verify SARVAM_API_KEY"
     )
 
 

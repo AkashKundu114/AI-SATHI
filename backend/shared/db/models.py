@@ -39,6 +39,8 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    username: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     phone_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String(255))
     shg_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("shg_groups.id"))

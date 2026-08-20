@@ -18,10 +18,12 @@ ANTI_HALLUCINATION_SYSTEM = (
 
 async def get_embedding(text_input: str) -> list[float]:
     s = get_settings()
+    ollama_url = getattr(s, "ollama_base_url", "http://ollama:11434")
+    embed_model = getattr(s, "ollama_embedding_model", "nomic-embed-text")
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.post(
-            f"{s.ollama_base_url}/api/embeddings",
-            json={"model": s.ollama_embedding_model, "prompt": text_input},
+            f"{ollama_url}/api/embeddings",
+            json={"model": embed_model, "prompt": text_input},
         )
         return r.json()["embedding"]
 
