@@ -66,44 +66,84 @@ async def login_user(payload: LoginRequest) -> dict:
         logger.warning(f"Failed login attempt for user: {username}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
     phone = "9064349004" if username == "admin" else username
+    secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
+    token_exp = datetime.now(timezone.utc) + timedelta(days=7)
+
     try:
-        from sqlalchemy import select
+        from sqlalchemy import select, text
 
         from shared.db.models import User
         from shared.db.session import get_db_session
 
+        profile = None
         async with get_db_session() as db:
-            user = (await db.execute(select(User).where(User.phone_number == phone))).scalar_one_or_none()
-            if not user:
-                user = User(
-                    phone_number=phone,
-                    name="Admin User" if phone == "9064349004" else "নতুন ব্যবহারকারী",
-                    verification_status="verified",
-                )
-                db.add(user)
-                await db.commit()
-                await db.refresh(user)
-            elif user.verification_status != "verified":
-                user.verification_status = "verified"
-                await db.commit()
-                await db.refresh(user)
-            profile = {
-                "id": str(user.id),
-                "phone": user.phone_number or phone,
-                "name": user.name or "Admin User",
-                "shg_name": "Not specified",
-                "district": getattr(user, "district", None) or "Unknown",
-                "block": getattr(user, "block", None) or "Unknown",
-                "user_type": getattr(user, "user_type", None) or "shg_member",
-            }
+            try:
+                user = (await db.execute(select(User).where(User.phone_number == phone))).scalar_one_or_none()
+            except SQLAlchemyError:
+                await db.rollback()
+                # Fallback for un-migrated tables with whatsapp_number column
+                row = (
+                    await db.execute(
+                        text(
+                            "SELECT id, name, district, block, user_type FROM users WHERE whatsapp_number = :p"
+                        ),
+                        {"p": phone},
+                    )
+                ).fetchone()
+                if row:
+                    profile = {
+                        "id": str(row[0]),
+                        "phone": phone,
+                        "name": row[1] or ("Admin User" if phone == "9064349004" else "User"),
+                        "shg_name": "Not specified",
+                        "district": row[2] or "Unknown",
+                        "block": row[3] or "Unknown",
+                        "user_type": row[4] or "shg_member",
+                    }
+                user = None
 
-        secret = os.environ.get("JWT_SECRET_KEY", "default_insecure_secret")
-        token_exp = datetime.now(timezone.utc) + timedelta(days=7)
+            if not profile:
+                if not user:
+                    user = User(
+                        phone_number=phone,
+                        name="Admin User" if phone == "9064349004" else "নতুন ব্যবহারকারী",
+                        verification_status="verified",
+                    )
+                    db.add(user)
+                    await db.commit()
+                    await db.refresh(user)
+                elif user.verification_status != "verified":
+                    user.verification_status = "verified"
+                    await db.commit()
+                    await db.refresh(user)
+
+                profile = {
+                    "id": str(user.id),
+                    "phone": getattr(user, "phone_number", None) or phone,
+                    "name": user.name or ("Admin User" if phone == "9064349004" else "User"),
+                    "shg_name": "Not specified",
+                    "district": getattr(user, "district", None) or "Unknown",
+                    "block": getattr(user, "block", None) or "Unknown",
+                    "user_type": getattr(user, "user_type", None) or "shg_member",
+                }
+
         token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
-
         return {"status": "success", "user": profile, "token": token}
     except SQLAlchemyError as exc:
         logger.error("Database error during login: %s", exc)
+        # Emergency fallback for Admin on fresh container boot
+        if username == "admin":
+            admin_profile = {
+                "id": "admin-local-fallback",
+                "phone": "9064349004",
+                "name": "Admin User",
+                "shg_name": "KothaKhata HQ",
+                "district": "Kolkata",
+                "block": "HQ",
+                "user_type": "admin",
+            }
+            token = jwt.encode({"sub": "9064349004", "exp": token_exp}, secret, algorithm="HS256")
+            return {"status": "success", "user": admin_profile, "token": token}
         raise HTTPException(status_code=500, detail="Database error occurred.")
     except Exception as exc:
         logger.exception("Unexpected login error: %s", exc)

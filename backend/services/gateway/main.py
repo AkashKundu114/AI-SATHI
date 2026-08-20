@@ -44,6 +44,20 @@ async def on_startup():
 
         engine = get_engine()
         async with engine.begin() as conn:
+            from sqlalchemy import text
+
+            try:
+                await conn.execute(
+                    text(
+                        "DO $$ BEGIN "
+                        "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'whatsapp_number') "
+                        "AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone_number') THEN "
+                        "ALTER TABLE users RENAME COLUMN whatsapp_number TO phone_number; "
+                        "END IF; END $$;"
+                    )
+                )
+            except Exception as e:
+                logger.debug("Column migration check: %s", e)
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables verified/initialized.")
     except Exception as exc:
