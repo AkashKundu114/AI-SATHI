@@ -84,14 +84,9 @@ async def health():
 @app.get("/favicon.svg", include_in_schema=False)
 @app.get("/favicon.png", include_in_schema=False)
 @app.get("/apple-touch-icon.png", include_in_schema=False)
-async def get_favicon(request: Request):
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+async def get_favicon():
     if web_dist_path:
-        filename = request.url.path.lstrip("/")
-        target = os.path.join(web_dist_path, filename)
-        if os.path.isfile(target):
-            media = "image/svg+xml" if filename.endswith(".svg") else ("image/png" if filename.endswith(".png") else "image/x-icon")
-            return FileResponse(target, media_type=media)
-        # Fallback to SVG favicon
         svg_file = os.path.join(web_dist_path, "favicon.svg")
         if os.path.isfile(svg_file):
             return FileResponse(svg_file, media_type="image/svg+xml")
@@ -148,8 +143,8 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
             return {"status": "ok"}
 
         sig = request.headers.get("X-Hub-Signature-256", "")
-
-        expected = "sha256=" + hmac.new(s.wa_app_secret.encode(), body, hashlib.sha256).hexdigest()
+        secret = (getattr(s, "webhook_secret", None) or "default_webhook_secret").encode()
+        expected = "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(sig, expected):
             logger.warning("webhook signature mismatch - dropping payload")
             log_security_event("hmac_signature_mismatch", source_ip=client_ip)

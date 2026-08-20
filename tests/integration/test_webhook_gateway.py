@@ -15,7 +15,7 @@ def _body(name: str) -> bytes:
 
 
 def _signature(body: bytes) -> str:
-    secret = get_settings().wa_app_secret.encode()
+    secret = (getattr(get_settings(), "webhook_secret", None) or "default_webhook_secret").encode()
     return "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
 
 

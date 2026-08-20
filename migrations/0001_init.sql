@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS shg_groups (
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  whatsapp_number VARCHAR(20) UNIQUE NOT NULL,
+  username VARCHAR(100) UNIQUE,
+  password_hash VARCHAR(255),
+  phone_number VARCHAR(20) UNIQUE NOT NULL,
   name VARCHAR(255),
   shg_id UUID REFERENCES shg_groups(id),
   district VARCHAR(100),
@@ -27,9 +29,14 @@ CREATE TABLE IF NOT EXISTS users (
   dialect_hint VARCHAR(30),
   ledger_correction_rate NUMERIC(4,3) DEFAULT 0.0,
   sessions_count INTEGER DEFAULT 0,
-  trust_stage VARCHAR(15) DEFAULT 'new'
+  trust_stage VARCHAR(15) DEFAULT 'new',
+  verification_status VARCHAR(20) DEFAULT 'unverified',
+  user_type VARCHAR(30),
+  plan_tier VARCHAR(20) DEFAULT 'free',
+  plan_expires TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS idx_users_whatsapp_number ON users(whatsapp_number);
+CREATE INDEX IF NOT EXISTS idx_users_phone_number ON users(phone_number);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

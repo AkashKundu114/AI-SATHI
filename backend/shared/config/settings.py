@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     metrics_alert_email: str = ""
     admin_api_token: str = ""
 
+    webhook_secret: str = "default_webhook_secret"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
