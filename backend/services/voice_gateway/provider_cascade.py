@@ -1,37 +1,38 @@
-from __future__ import annotations 
+from __future__ import annotations
 
-import logging 
+import logging
 
-from services .voice_gateway .providers import saaras_provider ,whisper_local_provider 
-from shared .metering .usage_tracker import check_and_increment_api_usage 
+from services.voice_gateway.providers import saaras_provider, whisper_local_provider
+from shared.metering.usage_tracker import check_and_increment_api_usage
 
-logger =logging .getLogger ("voice_gateway")
+logger = logging.getLogger("voice_gateway")
 
-CONFIDENCE_FLOOR =0.60 
+CONFIDENCE_FLOOR = 0.60
 
-async def transcribe (audio_bytes :bytes ,language :str ="bn",user_id :str |None =None )->dict :
-    allowed ,_ ,_ =await check_and_increment_api_usage (user_id ,"sarvam_stt")
 
-    providers =[]
-    if allowed :
-        providers .append (("saaras-v3",saaras_provider .transcribe ))
-    else :
-        logger .info ("User %s exceeded sarvam_stt monthly limit, bypassing saaras-v3 to local whisper",user_id )
+async def transcribe(audio_bytes: bytes, language: str = "bn", user_id: str | None = None) -> dict:
+    allowed, _, _ = await check_and_increment_api_usage(user_id, "sarvam_stt")
 
-    providers .append (("whisper-local",whisper_local_provider .transcribe ))
+    providers = []
+    if allowed:
+        providers.append(("saaras-v3", saaras_provider.transcribe))
+    else:
+        logger.info("User %s exceeded sarvam_stt monthly limit, bypassing saaras-v3 to local whisper", user_id)
 
-    last_error :Exception |None =None 
-    for name ,fn in providers :
-        try :
-            result =await fn (audio_bytes ,language =language )
-            if result ["confidence"]>=CONFIDENCE_FLOOR :
-                result ["provider"]=name 
-                return result 
-            logger .warning ("voice_gateway: %s low confidence (%.2f), falling through",name ,result ["confidence"])
-        except Exception as exc :
-            last_error =exc 
-            logger .warning ("voice_gateway: %s failed (%s), falling through",name ,exc )
+    providers.append(("whisper-local", whisper_local_provider.transcribe))
 
-    if last_error :
-        logger .error ("voice_gateway: all providers exhausted, last error: %s",last_error )
-    return {"transcript":"","confidence":0.0 ,"provider":"none"}
+    last_error: Exception | None = None
+    for name, fn in providers:
+        try:
+            result = await fn(audio_bytes, language=language)
+            if result["confidence"] >= CONFIDENCE_FLOOR:
+                result["provider"] = name
+                return result
+            logger.warning("voice_gateway: %s low confidence (%.2f), falling through", name, result["confidence"])
+        except Exception as exc:
+            last_error = exc
+            logger.warning("voice_gateway: %s failed (%s), falling through", name, exc)
+
+    if last_error:
+        logger.error("voice_gateway: all providers exhausted, last error: %s", last_error)
+    return {"transcript": "", "confidence": 0.0, "provider": "none"}

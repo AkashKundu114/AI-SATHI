@@ -1,22 +1,29 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from services.orchestrator.graph import (
-    _route_after_profile_load,
+    _interactive_payload,
     _route_after_intent,
     _route_after_price_chat,
-    _interactive_payload,
+    _route_after_profile_load,
 )
 
 
 def test_interactive_payload_parses_json_for_interactive_messages():
-    state = {"last_message_type": "interactive", "raw_input_text": '{"confirmation_choice": "confirm_save"}'}
+    state = {
+        "last_message_type": "interactive",
+        "raw_input_text": '{"confirmation_choice": "confirm_save"}',
+    }
     assert _interactive_payload(state) == {"confirmation_choice": "confirm_save"}
 
 
 def test_interactive_payload_empty_for_non_interactive_messages():
-    state = {"last_message_type": "text", "raw_input_text": '{"confirmation_choice": "confirm_save"}'}
+    state = {
+        "last_message_type": "text",
+        "raw_input_text": '{"confirmation_choice": "confirm_save"}',
+    }
     assert _interactive_payload(state) == {}
 
 
@@ -35,7 +42,11 @@ def test_incomplete_onboarding_routes_to_onboarding():
 
 
 def test_completed_onboarding_does_not_route_back_to_onboarding():
-    state = {"is_new_user": False, "onboarding_step": "DONE", "last_message_type": "text"}
+    state = {
+        "is_new_user": False,
+        "onboarding_step": "DONE",
+        "last_message_type": "text",
+    }
     assert _route_after_profile_load(state) == "classify_intent"
 
 
@@ -49,7 +60,11 @@ def test_awaiting_confirmation_with_flow_tap_routes_to_flow_node():
 
 
 def test_awaiting_confirmation_with_plain_text_routes_to_text_node():
-    state = {"awaiting_confirmation": True, "last_message_type": "text", "raw_input_text": "হ্যাঁ"}
+    state = {
+        "awaiting_confirmation": True,
+        "last_message_type": "text",
+        "raw_input_text": "হ্যাঁ",
+    }
     assert _route_after_profile_load(state) == "ledger_confirm"
 
 
@@ -101,7 +116,7 @@ def test_route_after_intent_covers_every_feature():
         "NEGOTIATION": "negotiation",
         "PRICE_CHAT": "price_chat",
         "IDLE": "unhandled",
-        "UNKNOWN_FEATURE": "unhandled", 
+        "UNKNOWN_FEATURE": "unhandled",
     }
     for feature, expected_node in expected.items():
         assert _route_after_intent({"active_feature": feature}) == expected_node

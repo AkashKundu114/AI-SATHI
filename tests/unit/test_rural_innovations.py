@@ -1,10 +1,15 @@
 import pytest
-from services.ledger_service.baki_tagada import format_baki_reminder_message, generate_upi_payment_link
 from services.catalog_service.storefront import get_seller_catalog_storefront
+from services.ledger_service.baki_tagada import (
+    format_baki_reminder_message,
+    generate_upi_payment_link,
+)
 
 
 def test_generate_upi_payment_link():
-    link = generate_upi_payment_link("merchant@upi", "Radha SHG", 250.0, "Saree Payment")
+    link = generate_upi_payment_link(
+        "merchant@upi", "Radha SHG", 250.0, "Saree Payment"
+    )
     assert "upi://pay?" in link
     assert "pa=merchant%40upi" in link
     assert "am=250.00" in link
@@ -12,7 +17,9 @@ def test_generate_upi_payment_link():
 
 
 def test_format_baki_reminder_message():
-    res = format_baki_reminder_message("রহিম কাকা", 200.0, "লক্ষ্মী স্বনির্ভর গোষ্ঠী", "9876543210@upi")
+    res = format_baki_reminder_message(
+        "রহিম কাকা", 200.0, "লক্ষ্মী স্বনির্ভর গোষ্ঠী", "9876543210@upi"
+    )
     assert res["customer_name"] == "রহিম কাকা"
     assert res["amount_inr"] == 200.0
     assert "রহিম কাকা" in res["reminder_text"]

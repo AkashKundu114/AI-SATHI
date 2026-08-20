@@ -67,7 +67,9 @@ Celery serializer to close off a task-injection RCE surface if the broker is eve
 reachable again:
 ```python
 # services/orchestrator/celery_entrypoint.py
-celery_app.conf.update(task_serializer="json", result_serializer="json", accept_content=["json"])
+celery_app.conf.update(
+    task_serializer="json", result_serializer="json", accept_content=["json"]
+)
 ```
 
 > **Status as of Pass #3, §11 below: superseded, not merely fixed.** Redis and Ollama
@@ -118,7 +120,9 @@ inside your infra.
 ```python
 # services/pdf_service/generator.py
 from markupsafe import escape
+
 _env = Environment(loader=FileSystemLoader(_TEMPLATE_DIR), autoescape=True)  # layer 1
+
 
 def _clean(s: str | None, max_len: int = 120) -> str:
     """Strip anything that isn't plain text before it ever reaches the template,
@@ -126,8 +130,9 @@ def _clean(s: str | None, max_len: int = 120) -> str:
     outbound network access."""
     if not s:
         return ""
-    s = re.sub(r"<[^>]*>", "", s)          # strip tags outright, don't rely on escaping alone
+    s = re.sub(r"<[^>]*>", "", s)  # strip tags outright, don't rely on escaping alone
     return s[:max_len]
+
 
 # apply _clean() to member_name, shg_name, district, and every category key
 income_by_category = {_clean(cat): amt for cat, amt in income_by_category.items()}
@@ -156,7 +161,10 @@ rendered.
 **File:** `services/gateway/main.py`
 
 ```python
-expected = "sha256=" + hmac.new(s.wa_webhook_verify_token.encode(), body, hashlib.sha256).hexdigest()
+expected = (
+    "sha256="
+    + hmac.new(s.wa_webhook_verify_token.encode(), body, hashlib.sha256).hexdigest()
+)
 ```
 
 Meta signs `X-Hub-Signature-256` with the WhatsApp **App Secret**, not the webhook
@@ -174,7 +182,9 @@ URL config, shared more casually than a secret) can now forge webhook payloads.
 wa_app_secret: str  # separate from wa_webhook_verify_token - get from Meta App Dashboard > Settings > Basic
 
 # services/gateway/main.py
-expected = "sha256=" + hmac.new(s.wa_app_secret.encode(), body, hashlib.sha256).hexdigest()
+expected = (
+    "sha256=" + hmac.new(s.wa_app_secret.encode(), body, hashlib.sha256).hexdigest()
+)
 ```
 
 **Status:** still fixed, unaffected by Pass #3 - `main.py`'s HMAC check is identical in
@@ -210,20 +220,26 @@ under H9, just via the path that's actually wired up.
 # shared/whatsapp/media.py
 MAX_AUDIO_BYTES = 6 * 1024 * 1024  # ~3 min OGG/OPUS per PRD FR1.1, generous margin
 
+
 async def _download(media_id: str, max_bytes: int | None = None) -> bytes:
     s = get_settings()
     async with httpx.AsyncClient() as client:
-        url_resp = await client.get(f"https://graph.facebook.com/v19.0/{media_id}",
-                                     headers={"Authorization": f"Bearer {s.wa_access_token}"})
+        url_resp = await client.get(
+            f"https://graph.facebook.com/v19.0/{media_id}",
+            headers={"Authorization": f"Bearer {s.wa_access_token}"},
+        )
         url_resp.raise_for_status()
         meta = url_resp.json()
         if max_bytes and int(meta.get("file_size", 0)) > max_bytes:
             raise ValueError("media_too_large")
-        media_resp = await client.get(meta["url"], headers={"Authorization": f"Bearer {s.wa_access_token}"})
+        media_resp = await client.get(
+            meta["url"], headers={"Authorization": f"Bearer {s.wa_access_token}"}
+        )
         media_resp.raise_for_status()
         if max_bytes and len(media_resp.content) > max_bytes:
             raise ValueError("media_too_large")
         return media_resp.content
+
 
 async def download_whatsapp_audio(media_id: str) -> bytes:
     return await _download(media_id, max_bytes=MAX_AUDIO_BYTES)
@@ -265,13 +281,27 @@ directly undermining the verifier that's supposed to catch it downstream.
 **Fix (extend assertion extraction to catch word-numbers before scheme names):**
 ```python
 _NUMBER_WORDS = {
-    "এক": 1, "দুই": 2, "তিন": 3, "চার": 4, "পাঁচ": 5, "দশ": 10, "পনেরো": 15,
-    "বিশ": 20, "পঁচিশ": 25, "ত্রিশ": 30, "পঞ্চাশ": 50, "একশো": 100,
-    "দুইশো": 200, "তিনশো": 300, "পাঁচশো": 500, "হাজার": 1000,
+    "এক": 1,
+    "দুই": 2,
+    "তিন": 3,
+    "চার": 4,
+    "পাঁচ": 5,
+    "দশ": 10,
+    "পনেরো": 15,
+    "বিশ": 20,
+    "পঁচিশ": 25,
+    "ত্রিশ": 30,
+    "পঞ্চাশ": 50,
+    "একশো": 100,
+    "দুইশো": 200,
+    "তিনশো": 300,
+    "পাঁচশো": 500,
+    "হাজার": 1000,
 }
 _WORD_AMOUNT_RE = re.compile(
     r"(" + "|".join(re.escape(w) for w in _NUMBER_WORDS) + r")(?:\s+(টাকা|হাজার))?"
 )
+
 
 def _extract_assertions(answer_bengali: str) -> list[tuple[str, int]]:
     assertions = []
@@ -280,7 +310,7 @@ def _extract_assertions(answer_bengali: str) -> list[tuple[str, int]]:
     for m in _DATE_RE.finditer(answer_bengali):
         assertions.append((m.group(1).strip(), m.start()))
     for m in _WORD_AMOUNT_RE.finditer(answer_bengali):
-        assertions.append((m.group(0).strip(), m.start()))   # flag it; even an
+        assertions.append((m.group(0).strip(), m.start()))  # flag it; even an
         # imperfect word->digit conversion is strictly better than silently
         # skipping it - a false "ungrounded" triggers the safe fallback message,
         # which is the correct fail-safe direction for this product.
@@ -300,7 +330,9 @@ central this check is to the product's actual safety claim.
 **File:** `services/orchestrator/nodes/ledger_confirm_node.py`, `shared/db/models.py`
 
 ```python
-amount_inr: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)   # max ~99,999,999.99
+amount_inr: Mapped[float] = mapped_column(
+    Numeric(10, 2), nullable=False
+)  # max ~99,999,999.99
 ```
 ```python
 async def _save(state, pending):

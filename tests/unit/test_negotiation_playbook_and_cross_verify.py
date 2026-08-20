@@ -1,10 +1,15 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from shared.knowledge.negotiation_playbook import choose_tactic, tactic_for, TACTICS
 from services.orchestrator.nodes.cross_verify import check_numeric_integrity
-from shared.knowledge.context import find_life_event, life_events_by_community, LIFE_EVENTS
+from shared.knowledge.context import (
+    LIFE_EVENTS,
+    find_life_event,
+    life_events_by_community,
+)
+from shared.knowledge.negotiation_playbook import TACTICS, choose_tactic, tactic_for
 
 
 def test_first_turn_always_anchors():
@@ -59,7 +64,9 @@ def test_numeric_integrity_within_rounding_tolerance():
 
 
 def test_numeric_integrity_no_amounts_in_text_is_trivially_ok():
-    result = check_numeric_integrity("ধন্যবাদ, শীঘ্রই যোগাযোগ করব।", allowed_amounts=[300.0])
+    result = check_numeric_integrity(
+        "ধন্যবাদ, শীঘ্রই যোগাযোগ করব।", allowed_amounts=[300.0]
+    )
     assert result["numeric_ok"] is True
     assert result["found_amounts"] == []
 

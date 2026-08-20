@@ -1,8 +1,9 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import pytest
-
 from services.orchestrator import model_router as router_module
 
 
@@ -31,14 +32,18 @@ async def test_advanced_tier_raises_budget_exhausted_when_hard_stopped(monkeypat
 
     with pytest.raises(router_module.BudgetExhaustedError):
         await router_module.route_completion(
-            system="s", prompt="p", criticality=router_module.TaskCriticality.ROUTINE,
+            system="s",
+            prompt="p",
+            criticality=router_module.TaskCriticality.ROUTINE,
             tier=router_module.AgentTier.ADVANCED,
         )
 
 
 @pytest.mark.asyncio
 async def test_budget_exhausted_error_is_a_model_unavailable_error_subclass():
-    assert issubclass(router_module.BudgetExhaustedError, router_module.ModelUnavailableError)
+    assert issubclass(
+        router_module.BudgetExhaustedError, router_module.ModelUnavailableError
+    )
 
 
 @pytest.mark.asyncio
@@ -61,14 +66,24 @@ async def test_advanced_tier_downgrades_to_standard_when_degraded(monkeypatch):
         return '{"confidence": 0.9}'
 
     async def _fake_charge(*a, **kw):
-        return {"used": 0, "total_budget": 1, "degraded_mode": True, "hard_stopped": False}
+        return {
+            "used": 0,
+            "total_budget": 1,
+            "degraded_mode": True,
+            "hard_stopped": False,
+        }
 
-    monkeypatch.setattr(router_module.sarvam_client, "chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(
+        router_module.sarvam_client, "chat_completion", _fake_chat_completion
+    )
     monkeypatch.setattr(router_module, "charge_credits", _fake_charge)
 
     result = await router_module.route_completion(
-        system="s", prompt="p", criticality=router_module.TaskCriticality.ROUTINE,
-        tier=router_module.AgentTier.ADVANCED, confidence_floor=0.0,
+        system="s",
+        prompt="p",
+        criticality=router_module.TaskCriticality.ROUTINE,
+        tier=router_module.AgentTier.ADVANCED,
+        confidence_floor=0.0,
     )
     assert captured["model"] == _FakeSettings.sarvam_chat_model
 
@@ -92,12 +107,22 @@ async def test_routine_tier_unaffected_by_degraded_mode(monkeypatch):
         return '{"confidence": 0.9}'
 
     async def _fake_charge(*a, **kw):
-        return {"used": 0, "total_budget": 1, "degraded_mode": True, "hard_stopped": False}
+        return {
+            "used": 0,
+            "total_budget": 1,
+            "degraded_mode": True,
+            "hard_stopped": False,
+        }
 
-    monkeypatch.setattr(router_module.sarvam_client, "chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(
+        router_module.sarvam_client, "chat_completion", _fake_chat_completion
+    )
     monkeypatch.setattr(router_module, "charge_credits", _fake_charge)
 
     result = await router_module.route_completion(
-        system="s", prompt="p", criticality=router_module.TaskCriticality.ROUTINE, confidence_floor=0.0
+        system="s",
+        prompt="p",
+        criticality=router_module.TaskCriticality.ROUTINE,
+        confidence_floor=0.0,
     )
     assert result["model_used"] == "sarvam-standard"

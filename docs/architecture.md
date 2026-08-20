@@ -634,8 +634,7 @@ client = SarvamAI(api_subscription_key=SARVAM_API_KEY)
 
 # 1. Create a document intelligence job
 job = client.document_intelligence.create_job(
-    language="bn-IN",
-    output_format="markdown"
+    language="bn-IN", output_format="markdown"
 )
 
 # 2. Upload document (receipt / invoice / passbook)

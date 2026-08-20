@@ -1,18 +1,21 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 
 import pytest
-
-from services.orchestrator.nodes import catalog_node as node_module
 from services.orchestrator.model_router import ModelUnavailableError
+from services.orchestrator.nodes import catalog_node as node_module
 
 
 class _FakeS3:
-    
-
-    def __init__(self, get_object_bytes=b"fake-image-bytes", raise_on_get=False, raise_on_put=False):
+    def __init__(
+        self,
+        get_object_bytes=b"fake-image-bytes",
+        raise_on_get=False,
+        raise_on_put=False,
+    ):
         self._bytes = get_object_bytes
         self.raise_on_get = raise_on_get
         self.raise_on_put = raise_on_put
@@ -39,8 +42,15 @@ class _FakeS3:
         return "https://example.com/presigned-url"
 
 
-def _default_mocks(monkeypatch, s3=None, process_result=(b"processed", None),
-                    vision_info=None, captions=None, prices=(80.0, 250.0), poster=(None, "none")):
+def _default_mocks(
+    monkeypatch,
+    s3=None,
+    process_result=(b"processed", None),
+    vision_info=None,
+    captions=None,
+    prices=(80.0, 250.0),
+    poster=(None, "none"),
+):
     s3 = s3 or _FakeS3()
 
     def _fake_download_bytes(key):
@@ -51,7 +61,11 @@ def _default_mocks(monkeypatch, s3=None, process_result=(b"processed", None),
         s3.put_object(Bucket=None, Key=key, Body=data, ContentType=content_type)
 
     def _fake_generate_read_url(key, expires_in_seconds=86400):
-        return s3.generate_presigned_url(ClientMethod="get_object", Params={"Bucket": None, "Key": key}, ExpiresIn=expires_in_seconds)
+        return s3.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": None, "Key": key},
+            ExpiresIn=expires_in_seconds,
+        )
 
     monkeypatch.setattr(node_module, "download_bytes", _fake_download_bytes)
     monkeypatch.setattr(node_module, "upload_bytes", _fake_upload_bytes)
@@ -61,14 +75,23 @@ def _default_mocks(monkeypatch, s3=None, process_result=(b"processed", None),
     async def _process(raw_bytes):
         return process_result
 
-    monkeypatch.setattr(node_module, "process_product_image", lambda raw: process_result)
+    monkeypatch.setattr(
+        node_module, "process_product_image", lambda raw: process_result
+    )
 
-    vision_info = vision_info or {"product_type": "papad", "category": "food", "vision_model_used": "sarvam-vision"}
+    vision_info = vision_info or {
+        "product_type": "papad",
+        "category": "food",
+        "vision_model_used": "sarvam-vision",
+    }
 
     async def _analyze(raw_bytes):
         return vision_info
 
-    captions = captions or {"whatsapp_caption": "পাপড় বিক্রির জন্য প্রস্তুত!", "ad_caption": "আজই অর্ডার করুন!"}
+    captions = captions or {
+        "whatsapp_caption": "পাপড় বিক্রির জন্য প্রস্তুত!",
+        "ad_caption": "আজই অর্ডার করুন!",
+    }
 
     async def _captions(product_info, shg_name=""):
         return captions, prices
@@ -137,7 +160,9 @@ async def test_processed_image_upload_failure_returns_friendly_message(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_happy_path_without_poster_falls_back_to_plain_image_and_caption(monkeypatch):
+async def test_happy_path_without_poster_falls_back_to_plain_image_and_caption(
+    monkeypatch,
+):
     _default_mocks(monkeypatch, poster=(None, "none"))
     result = await node_module.catalog_node({"raw_image_s3_key": "catalog-raw/x.jpg"})
 
@@ -155,7 +180,7 @@ async def test_happy_path_with_poster_sends_single_composited_image(monkeypatch)
     _default_mocks(monkeypatch, poster=(b"poster-bytes", "pillow"))
     result = await node_module.catalog_node({"raw_image_s3_key": "catalog-raw/x.jpg"})
 
-    assert len(result["outbound_messages"]) == 2  
+    assert len(result["outbound_messages"]) == 2
     assert "poster=pillow" in result["trace"][0]
 
 
@@ -176,7 +201,14 @@ async def test_poster_upload_failure_falls_back_to_plain_delivery(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_unknown_vision_category_still_produces_a_result(monkeypatch):
-    _default_mocks(monkeypatch, vision_info={"product_type": "kolshi", "category": "other", "vision_model_used": "sarvam-vision"})
+    _default_mocks(
+        monkeypatch,
+        vision_info={
+            "product_type": "kolshi",
+            "category": "other",
+            "vision_model_used": "sarvam-vision",
+        },
+    )
     result = await node_module.catalog_node({"raw_image_s3_key": "catalog-raw/x.jpg"})
     assert result["catalog_result"]["product_type"] == "kolshi"
 
@@ -186,7 +218,10 @@ def test_product_label_bengali_uses_local_taxonomy_when_matched():
 
 
 def test_product_label_bengali_falls_back_to_raw_product_type_when_unmatched():
-    assert node_module._product_label_bengali({"product_type": "smartphone case"}) == "smartphone case"
+    assert (
+        node_module._product_label_bengali({"product_type": "smartphone case"})
+        == "smartphone case"
+    )
 
 
 def test_product_label_bengali_falls_back_to_generic_label_when_nothing_available():
@@ -194,7 +229,10 @@ def test_product_label_bengali_falls_back_to_generic_label_when_nothing_availabl
 
 
 def test_shg_name_reads_from_user_profile():
-    assert node_module._shg_name({"user_profile": {"shg_name": "মা দুর্গা গোষ্ঠী"}}) == "মা দুর্গা গোষ্ঠী"
+    assert (
+        node_module._shg_name({"user_profile": {"shg_name": "মা দুর্গা গোষ্ঠী"}})
+        == "মা দুর্গা গোষ্ঠী"
+    )
 
 
 def test_shg_name_defaults_to_empty_string_when_missing():

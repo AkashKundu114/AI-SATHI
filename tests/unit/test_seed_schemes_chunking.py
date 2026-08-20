@@ -5,7 +5,9 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 _SCRIPT_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "backend", "scripts", "seed_schemes.py")
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "backend", "scripts", "seed_schemes.py"
+    )
 )
 _spec = importlib.util.spec_from_file_location("seed_schemes", _SCRIPT_PATH)
 seed_schemes = importlib.util.module_from_spec(_spec)
@@ -49,5 +51,5 @@ def test_chunk_text_covers_the_entire_input_without_gaps():
     reconstructed = chunks[0]
     for c in chunks[1:]:
         reconstructed += c[100:] if len(c) > 100 else c
-    assert text in reconstructed or reconstructed.replace("", "") != ""  
-    assert len(reconstructed) >= len(text) - 200 
+    assert text in reconstructed or reconstructed.replace("", "") != ""
+    assert len(reconstructed) >= len(text) - 200

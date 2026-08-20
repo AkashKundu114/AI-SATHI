@@ -1,8 +1,9 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from shared.knowledge.context import get_context_for_agents, DISTRICT_MELAS
+from shared.knowledge.context import DISTRICT_MELAS, get_context_for_agents
 
 
 def test_no_district_gives_no_melas():

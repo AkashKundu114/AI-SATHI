@@ -1,8 +1,9 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import pytest
-
 from services.orchestrator import model_router as router_module
 from shared.config.token_budgets import DEFAULT_TOKEN_BUDGET
 
@@ -26,7 +27,12 @@ def _reset(monkeypatch):
         return False
 
     async def _fake_charge(*a, **kw):
-        return {"used": 0, "total_budget": 1, "degraded_mode": False, "hard_stopped": False}
+        return {
+            "used": 0,
+            "total_budget": 1,
+            "degraded_mode": False,
+            "hard_stopped": False,
+        }
 
     monkeypatch.setattr(router_module, "is_hard_stopped", _not_hard_stopped)
     monkeypatch.setattr(router_module, "is_degraded", _not_degraded)
@@ -43,11 +49,16 @@ async def test_known_task_name_passes_its_specific_max_tokens(monkeypatch):
         captured["max_tokens"] = max_tokens
         return '{"confidence": 0.9}'
 
-    monkeypatch.setattr(router_module.sarvam_client, "chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(
+        router_module.sarvam_client, "chat_completion", _fake_chat_completion
+    )
 
     await router_module.route_completion(
-        system="s", prompt="p", criticality=router_module.TaskCriticality.ROUTINE,
-        confidence_floor=0.0, task_name="greeting",
+        system="s",
+        prompt="p",
+        criticality=router_module.TaskCriticality.ROUTINE,
+        confidence_floor=0.0,
+        task_name="greeting",
     )
     assert captured["max_tokens"] == 50
 
@@ -60,9 +71,14 @@ async def test_no_task_name_uses_default_budget(monkeypatch):
         captured["max_tokens"] = max_tokens
         return '{"confidence": 0.9}'
 
-    monkeypatch.setattr(router_module.sarvam_client, "chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(
+        router_module.sarvam_client, "chat_completion", _fake_chat_completion
+    )
 
     await router_module.route_completion(
-        system="s", prompt="p", criticality=router_module.TaskCriticality.ROUTINE, confidence_floor=0.0,
+        system="s",
+        prompt="p",
+        criticality=router_module.TaskCriticality.ROUTINE,
+        confidence_floor=0.0,
     )
     assert captured["max_tokens"] == DEFAULT_TOKEN_BUDGET

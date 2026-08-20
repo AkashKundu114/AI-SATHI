@@ -1,13 +1,14 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from shared.knowledge.crop_calendar import (
     CROP_CALENDAR,
     crops_at_harvest,
     crops_being_sown,
-    find_crop,
     crops_for_district,
+    find_crop,
 )
 
 
@@ -35,7 +36,9 @@ def test_crops_being_sown_is_distinct_from_harvest():
     for month in range(1, 13):
         sown = {c.slug for c in crops_being_sown(month)}
         harvested = {c.slug for c in crops_at_harvest(month)}
-        assert sown.isdisjoint(harvested), f"month {month} has overlapping sow/harvest crops"
+        assert sown.isdisjoint(harvested), (
+            f"month {month} has overlapping sow/harvest crops"
+        )
 
 
 def test_find_crop_unknown_slug_returns_none():
@@ -54,7 +57,9 @@ def test_crops_for_district_case_insensitive_and_partial():
 
 def test_crops_for_district_empty_for_unrelated_district():
     assert crops_for_district("Kolkata") == [] or all(
-        "Kolkata".lower() not in d.lower() for c in CROP_CALENDAR for d in c.main_districts
+        "Kolkata".lower() not in d.lower()
+        for c in CROP_CALENDAR
+        for d in c.main_districts
     )
 
 

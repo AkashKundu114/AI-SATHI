@@ -1,11 +1,11 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import pytest
-
-from services.orchestrator.nodes import market_predictor_node as node_module
 from services.orchestrator.model_router import ModelUnavailableError
+from services.orchestrator.nodes import market_predictor_node as node_module
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,9 @@ async def test_build_report_failure_degrades_to_friendly_message(monkeypatch):
 
     monkeypatch.setattr(node_module, "block_sales_trend", _raise)
 
-    result = await node_module.market_predictor_node({"user_profile": {"block": "Balidewanganj"}})
+    result = await node_module.market_predictor_node(
+        {"user_profile": {"block": "Balidewanganj"}}
+    )
     assert result["trace"] == ["market_predictor_node:build_report_failed"]
 
 
@@ -44,11 +46,17 @@ async def test_no_rising_or_saturated_products_reports_insufficient_data(monkeyp
     monkeypatch.setattr(
         node_module,
         "get_context_for_agents",
-        lambda **kwargs: {"season": None, "upcoming_festivals": [], "upcoming_district_melas": []},
+        lambda **kwargs: {
+            "season": None,
+            "upcoming_festivals": [],
+            "upcoming_district_melas": [],
+        },
     )
     monkeypatch.setattr(node_module, "crops_at_harvest", lambda month: [])
 
-    result = await node_module.market_predictor_node({"user_profile": {"block": "Balidewanganj"}})
+    result = await node_module.market_predictor_node(
+        {"user_profile": {"block": "Balidewanganj"}}
+    )
     assert result["trace"] == ["market_predictor_node:insufficient_data"]
 
 
@@ -67,16 +75,24 @@ async def test_happy_path_phrases_rising_and_saturated_products(monkeypatch):
 
     async def _fake_completion(**kwargs):
         assert "papad" in kwargs["prompt"]
-        return {"text": "পাপড়ের চাহিদা বাড়ছে, আচারের সরবরাহ বেশি।", "model_used": "sarvam-standard", "escalated": False}
+        return {
+            "text": "পাপড়ের চাহিদা বাড়ছে, আচারের সরবরাহ বেশি।",
+            "model_used": "sarvam-standard",
+            "escalated": False,
+        }
 
     monkeypatch.setattr(node_module, "block_sales_trend", _fake_trend)
     monkeypatch.setattr(node_module, "fetch_mandi_prices", _fake_mandi)
     monkeypatch.setattr(node_module, "route_completion", _fake_completion)
 
-    result = await node_module.market_predictor_node({"user_profile": {"block": "Balidewanganj"}})
+    result = await node_module.market_predictor_node(
+        {"user_profile": {"block": "Balidewanganj"}}
+    )
     assert result["market_report"]["rising"] == ["papad"]
     assert result["market_report"]["saturated"] == ["pickle"]
-    assert result["outbound_messages"][0]["body"] == "পাপড়ের চাহিদা বাড়ছে, আচারের সরবরাহ বেশি।"
+    assert (
+        result["outbound_messages"][0]["body"] == "পাপড়ের চাহিদা বাড়ছে, আচারের সরবরাহ বেশি।"
+    )
 
 
 @pytest.mark.asyncio
@@ -97,8 +113,10 @@ async def test_model_unavailable_during_phrasing_uses_plain_fallback(monkeypatch
     monkeypatch.setattr(node_module, "fetch_mandi_prices", _fake_mandi)
     monkeypatch.setattr(node_module, "route_completion", _raise)
 
-    result = await node_module.market_predictor_node({"user_profile": {"block": "Balidewanganj"}})
-    assert "papad" in result["outbound_messages"][0]["body"]  
+    result = await node_module.market_predictor_node(
+        {"user_profile": {"block": "Balidewanganj"}}
+    )
+    assert "papad" in result["outbound_messages"][0]["body"]
 
 
 @pytest.mark.asyncio
@@ -119,5 +137,7 @@ async def test_mandi_price_lookup_failure_does_not_block_the_report(monkeypatch)
     monkeypatch.setattr(node_module, "fetch_mandi_prices", _raise_mandi)
     monkeypatch.setattr(node_module, "route_completion", _fake_completion)
 
-    result = await node_module.market_predictor_node({"user_profile": {"block": "Balidewanganj"}})
+    result = await node_module.market_predictor_node(
+        {"user_profile": {"block": "Balidewanganj"}}
+    )
     assert result["market_report"]["mandi_prices"] == []

@@ -1,9 +1,9 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from services.orchestrator.nodes import ledger_node
-
 
 _SAMPLE_PENDING = {
     "transactions": [
@@ -34,7 +34,9 @@ def test_confirmation_lines_use_bengali_digits():
 
 def test_falls_back_to_text_when_flow_not_configured(monkeypatch):
     monkeypatch.setattr(ledger_node, "get_settings", lambda: _FakeSettingsNoFlow())
-    msg = ledger_node._build_confirmation_message(_SAMPLE_PENDING, _SAMPLE_PENDING["raw_transcript"])
+    msg = ledger_node._build_confirmation_message(
+        _SAMPLE_PENDING, _SAMPLE_PENDING["raw_transcript"]
+    )
     assert msg["type"] == "text"
     assert "৩০০" in msg["body"]
     assert "ঠিক আছে?" in msg["body"]
@@ -42,7 +44,9 @@ def test_falls_back_to_text_when_flow_not_configured(monkeypatch):
 
 def test_sends_flow_when_configured(monkeypatch):
     monkeypatch.setattr(ledger_node, "get_settings", lambda: _FakeSettingsWithFlow())
-    msg = ledger_node._build_confirmation_message(_SAMPLE_PENDING, _SAMPLE_PENDING["raw_transcript"])
+    msg = ledger_node._build_confirmation_message(
+        _SAMPLE_PENDING, _SAMPLE_PENDING["raw_transcript"]
+    )
     assert msg["type"] == "flow"
     assert msg["flow_id"] == "123456789"
     assert msg["screen_id"] == "REVIEW_ENTRY"
@@ -52,8 +56,13 @@ def test_sends_flow_when_configured(monkeypatch):
 
 def test_flow_screen_data_handles_income_only_entry(monkeypatch):
     monkeypatch.setattr(ledger_node, "get_settings", lambda: _FakeSettingsWithFlow())
-    income_only = {**_SAMPLE_PENDING, "transactions": [_SAMPLE_PENDING["transactions"][0]]}
-    msg = ledger_node._build_confirmation_message(income_only, income_only["raw_transcript"])
+    income_only = {
+        **_SAMPLE_PENDING,
+        "transactions": [_SAMPLE_PENDING["transactions"][0]],
+    }
+    msg = ledger_node._build_confirmation_message(
+        income_only, income_only["raw_transcript"]
+    )
     assert msg["screen_data"]["expense_lines"] == "কোনো খরচ নেই এই এন্ট্রিতে"
 
 

@@ -1,12 +1,13 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from services.orchestrator.nodes.negotiation_node import (
+    MAX_REASONABLE_OFFER,
+    _compute_counter_offer,
     _extract_amount,
     _mentions_a_number,
-    _compute_counter_offer,
-    MAX_REASONABLE_OFFER,
 )
 
 
@@ -25,6 +26,7 @@ def test_extract_amount_with_comma():
 def test_extract_amount_none_when_no_number():
     assert _extract_amount("সে রাজি না") is None
 
+
 def test_extract_amount_rejects_very_long_digit_string():
     attack = "৯" * 400 + " টাকা দিচ্ছি"
     assert _extract_amount(attack) is None
@@ -35,7 +37,10 @@ def test_extract_amount_rejects_value_above_ceiling():
 
 
 def test_extract_amount_accepts_value_at_ceiling():
-    assert _extract_amount(f"{int(MAX_REASONABLE_OFFER)} টাকা দিচ্ছি") == MAX_REASONABLE_OFFER
+    assert (
+        _extract_amount(f"{int(MAX_REASONABLE_OFFER)} টাকা দিচ্ছি") == MAX_REASONABLE_OFFER
+    )
+
 
 def test_mentions_a_number_catches_bare_digit_no_currency_marker():
     assert _mentions_a_number("ঠিক আছে, ৫০ হলে চলবে, রাজি!") is True

@@ -1,15 +1,18 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from contextlib import asynccontextmanager
 
 import pytest
-
 from shared.guardrails import response_cache as cache_module
 
 
 def test_normalize_query_text_lowercases_and_sorts_words():
-    assert cache_module.normalize_query_text("Today Onion Price") == cache_module.normalize_query_text("price onion today")
+    assert cache_module.normalize_query_text(
+        "Today Onion Price"
+    ) == cache_module.normalize_query_text("price onion today")
 
 
 def test_normalize_query_text_converts_bengali_digits():
@@ -17,8 +20,12 @@ def test_normalize_query_text_converts_bengali_digits():
 
 
 def test_build_cache_key_is_stable_for_equivalent_queries():
-    key1 = cache_module.build_cache_key("market_report", "আজ পেঁয়াজের দাম", scope="Balidewanganj")
-    key2 = cache_module.build_cache_key("market_report", "পেঁয়াজের আজ দাম", scope="Balidewanganj")
+    key1 = cache_module.build_cache_key(
+        "market_report", "আজ পেঁয়াজের দাম", scope="Balidewanganj"
+    )
+    key2 = cache_module.build_cache_key(
+        "market_report", "পেঁয়াজের আজ দাম", scope="Balidewanganj"
+    )
     assert key1 == key2
 
 
@@ -59,6 +66,7 @@ def _fake_get_db_session(row=None):
     @asynccontextmanager
     async def _ctx():
         yield _FakeDB(row)
+
     return _ctx
 
 
@@ -71,7 +79,9 @@ async def test_get_cached_response_returns_none_on_miss(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_cached_response_returns_text_on_hit(monkeypatch):
-    monkeypatch.setattr(cache_module, "get_db_session", _fake_get_db_session(row=("cached answer",)))
+    monkeypatch.setattr(
+        cache_module, "get_db_session", _fake_get_db_session(row=("cached answer",))
+    )
     result = await cache_module.get_cached_response("some-key")
     assert result == "cached answer"
 
@@ -82,7 +92,6 @@ async def test_get_cached_response_falls_back_to_none_on_db_error(monkeypatch):
     async def _raising_ctx():
         raise RuntimeError("db down")
         yield
-
 
     monkeypatch.setattr(cache_module, "get_db_session", lambda: _raising_ctx())
     result = await cache_module.get_cached_response("some-key")
@@ -96,7 +105,5 @@ async def test_set_cached_response_does_not_raise_on_db_error(monkeypatch):
         raise RuntimeError("db down")
         yield
 
-
     monkeypatch.setattr(cache_module, "get_db_session", lambda: _raising_ctx())
     await cache_module.set_cached_response("some-key", "text")
-

@@ -1,9 +1,10 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from services.vision_service.poster_composer import _truncate, compose_poster
 from services.vision_service import poster_composer
+from services.vision_service.poster_composer import _truncate, compose_poster
 
 
 def test_truncate_short_text_unchanged():
@@ -27,6 +28,10 @@ class _FakeSettings:
 def test_compose_poster_returns_none_without_font(monkeypatch):
     monkeypatch.setattr(poster_composer, "get_settings", lambda: _FakeSettings())
     result = compose_poster(
-        b"not-a-real-image", product_name="test", ad_caption="test", price_min=1, price_max=2
+        b"not-a-real-image",
+        product_name="test",
+        ad_caption="test",
+        price_min=1,
+        price_max=2,
     )
     assert result is None

@@ -1,7 +1,13 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from shared.guardrails.output_guard import validate_output, enforce_output_guard, MAX_OUTPUT_CHARS
+from shared.guardrails.output_guard import (
+    MAX_OUTPUT_CHARS,
+    enforce_output_guard,
+    validate_output,
+)
 
 
 def test_normal_bengali_reply_is_safe():
@@ -11,13 +17,17 @@ def test_normal_bengali_reply_is_safe():
 
 
 def test_openai_style_secret_key_flagged():
-    is_safe, reason = validate_output("here is the key sk-abcdefghijklmnopqrstuvwxyz123456")
+    is_safe, reason = validate_output(
+        "here is the key sk-abcdefghijklmnopqrstuvwxyz123456"
+    )
     assert is_safe is False
     assert reason == "contains_secret_shaped_string"
 
 
 def test_bearer_token_flagged():
-    is_safe, reason = validate_output("Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234567890")
+    is_safe, reason = validate_output(
+        "Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234567890"
+    )
     assert is_safe is False
 
 
@@ -50,7 +60,9 @@ def test_sql_statement_flagged():
 
 
 def test_stack_trace_flagged():
-    is_safe, reason = validate_output('Traceback (most recent call last):\n  File "app.py", line 10')
+    is_safe, reason = validate_output(
+        'Traceback (most recent call last):\n  File "app.py", line 10'
+    )
     assert is_safe is False
 
 
@@ -71,5 +83,7 @@ def test_enforce_output_guard_returns_original_when_safe():
 
 
 def test_enforce_output_guard_returns_fallback_when_unsafe():
-    result = enforce_output_guard("sk-leakedsecretkeyabcdefghijklmnop", fallback="নিরাপদ উত্তর")
+    result = enforce_output_guard(
+        "sk-leakedsecretkeyabcdefghijklmnop", fallback="নিরাপদ উত্তর"
+    )
     assert result == "নিরাপদ উত্তর"

@@ -1,12 +1,13 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import json
-import pytest
 
-from services.orchestrator.nodes import intent_router as node_module
+import pytest
 from services.orchestrator.model_router import ModelUnavailableError
+from services.orchestrator.nodes import intent_router as node_module
 
 
 @pytest.mark.asyncio
@@ -27,7 +28,9 @@ async def test_financial_keyword_routes_to_ledger(monkeypatch):
 
     monkeypatch.setattr(node_module, "route_completion", _should_not_be_called)
 
-    result = await node_module.classify_intent({"raw_input_text": "৩০০ টাকা পাপড় বিক্রি করেছি"})
+    result = await node_module.classify_intent(
+        {"raw_input_text": "৩০০ টাকা পাপড় বিক্রি করেছি"}
+    )
     assert result["active_feature"] == "LEDGER"
 
 
@@ -64,7 +67,11 @@ async def test_empty_input_returns_idle_without_calling_model(monkeypatch):
 @pytest.mark.asyncio
 async def test_no_keyword_match_falls_through_to_model(monkeypatch):
     async def _fake(**kwargs):
-        return {"text": json.dumps({"feature": "PRICING", "confidence": 0.9}), "model_used": "sarvam-standard", "escalated": False}
+        return {
+            "text": json.dumps({"feature": "PRICING", "confidence": 0.9}),
+            "model_used": "sarvam-standard",
+            "escalated": False,
+        }
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 
@@ -75,7 +82,11 @@ async def test_no_keyword_match_falls_through_to_model(monkeypatch):
 @pytest.mark.asyncio
 async def test_model_returns_unknown_feature_maps_to_idle(monkeypatch):
     async def _fake(**kwargs):
-        return {"text": json.dumps({"feature": "UNKNOWN", "confidence": 0.3}), "model_used": "sarvam-standard", "escalated": False}
+        return {
+            "text": json.dumps({"feature": "UNKNOWN", "confidence": 0.3}),
+            "model_used": "sarvam-standard",
+            "escalated": False,
+        }
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 
@@ -86,7 +97,11 @@ async def test_model_returns_unknown_feature_maps_to_idle(monkeypatch):
 @pytest.mark.asyncio
 async def test_model_returns_malformed_json_maps_to_idle(monkeypatch):
     async def _fake(**kwargs):
-        return {"text": "not json at all", "model_used": "sarvam-standard", "escalated": False}
+        return {
+            "text": "not json at all",
+            "model_used": "sarvam-standard",
+            "escalated": False,
+        }
 
     monkeypatch.setattr(node_module, "route_completion", _fake)
 

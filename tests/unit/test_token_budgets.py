@@ -1,7 +1,13 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from shared.config.token_budgets import token_budget_for, TOKEN_BUDGETS, DEFAULT_TOKEN_BUDGET
+from shared.config.token_budgets import (
+    DEFAULT_TOKEN_BUDGET,
+    TOKEN_BUDGETS,
+    token_budget_for,
+)
 
 
 def test_known_task_returns_its_specific_budget():

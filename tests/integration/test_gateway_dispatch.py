@@ -1,5 +1,4 @@
 import pytest
-
 from services.gateway import main as gateway
 from shared.whatsapp.parser import IncomingMessage
 
@@ -16,7 +15,9 @@ def base_message():
 
 
 @pytest.mark.asyncio
-async def test_audio_dispatch_downloads_transcribes_and_queues(monkeypatch, base_message):
+async def test_audio_dispatch_downloads_transcribes_and_queues(
+    monkeypatch, base_message
+):
     processed = []
 
     async def _download(media_id):
@@ -25,7 +26,11 @@ async def test_audio_dispatch_downloads_transcribes_and_queues(monkeypatch, base
 
     async def _transcribe(audio_bytes):
         assert audio_bytes == b"audio"
-        return {"transcript": "আজ ৩০০ টাকা বিক্রি", "provider": "fake-stt", "confidence": 0.91}
+        return {
+            "transcript": "আজ ৩০০ টাকা বিক্রি",
+            "provider": "fake-stt",
+            "confidence": 0.91,
+        }
 
     async def _fake_process_turn(number, turn_input):
         processed.append((number, turn_input))
@@ -52,11 +57,14 @@ async def test_audio_dispatch_downloads_transcribes_and_queues(monkeypatch, base
 
 def replace_message_audio(msg):
     from dataclasses import replace
+
     return replace(msg, message_type="audio", text=None, audio_id="audio-media-id")
 
 
 @pytest.mark.asyncio
-async def test_image_dispatch_uploads_raw_image_and_queues_catalog_key(monkeypatch, base_message):
+async def test_image_dispatch_uploads_raw_image_and_queues_catalog_key(
+    monkeypatch, base_message
+):
     processed = []
     uploads = []
 
@@ -75,7 +83,10 @@ async def test_image_dispatch_uploads_raw_image_and_queues_catalog_key(monkeypat
     monkeypatch.setattr(gateway, "process_turn_and_dispatch", _fake_process_turn)
 
     from dataclasses import replace
-    msg = replace(base_message, message_type="image", text=None, image_id="image-media-id")
+
+    msg = replace(
+        base_message, message_type="image", text=None, image_id="image-media-id"
+    )
     await gateway._dispatch_to_orchestrator(msg)
 
     assert len(uploads) == 1

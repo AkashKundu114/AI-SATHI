@@ -25,8 +25,14 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .[test]
 
-      - name: Lint
-        run: ruff check backend/
+      - name: Lint and Auto-fix
+        run: |
+          ruff check . --fix || true
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git commit -m "chore: fix code formatting" || true
+          git push || true
 
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short

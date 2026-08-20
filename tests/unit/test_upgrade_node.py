@@ -1,7 +1,6 @@
 import pytest
-
-from services.orchestrator.nodes.upgrade_node import upgrade_node
 from services.orchestrator.nodes.intent_router import classify_intent
+from services.orchestrator.nodes.upgrade_node import upgrade_node
 
 
 @pytest.mark.asyncio

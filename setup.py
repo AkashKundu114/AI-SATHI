@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="ai-sathi-shared",
@@ -18,9 +18,7 @@ setup(
         "python-dotenv",
         "boto3",
     ],
-    extras_require={
-        "test": ["pytest", "pytest-cov", "pytest-asyncio"]
-    },
+    extras_require={"test": ["pytest", "pytest-cov", "pytest-asyncio"]},
     include_package_data=True,
     zip_safe=False,
 )

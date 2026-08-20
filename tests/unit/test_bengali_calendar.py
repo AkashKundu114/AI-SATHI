@@ -1,14 +1,14 @@
-import sys
 import os
+import sys
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from shared.i18n.bengali_calendar import (
-    gregorian_to_bangla_approx,
-    format_bangla_calendar_label,
     BANGLA_MONTHS,
     GREGORIAN_MONTHS_BENGALI,
+    format_bangla_calendar_label,
+    gregorian_to_bangla_approx,
 )
 
 
@@ -27,10 +27,10 @@ def test_bangla_months_list_has_twelve_entries():
 def test_new_year_boundary_transitions_correctly():
     day_before = gregorian_to_bangla_approx(date(2026, 4, 13))
     new_year_day = gregorian_to_bangla_approx(date(2026, 4, 14))
-    assert day_before[0] == "চৈত্র"       
-    assert new_year_day[0] == "বৈশাখ"     
-    assert new_year_day[1] == 1           
-    assert new_year_day[2] == day_before[2] + 1  
+    assert day_before[0] == "চৈত্র"
+    assert new_year_day[0] == "বৈশাখ"
+    assert new_year_day[1] == 1
+    assert new_year_day[2] == day_before[2] + 1
 
 
 def test_result_is_always_structurally_valid_across_a_four_year_span_including_a_leap_year():
@@ -40,7 +40,7 @@ def test_result_is_always_structurally_valid_across_a_four_year_span_including_a
         month_name, day, bangla_year = gregorian_to_bangla_approx(d)
         assert month_name in BANGLA_MONTHS
         assert 1 <= day <= 31
-        assert bangla_year > 1400  
+        assert bangla_year > 1400
         d += timedelta(days=1)
 
 
@@ -51,7 +51,7 @@ def test_bangla_year_matches_well_known_public_mapping():
 
 def test_format_bangla_calendar_label_includes_approximation_marker():
     label = format_bangla_calendar_label(date(2026, 7, 12))
-    assert "আনুমানিক" in label  
+    assert "আনুমানিক" in label
     assert any(month in label for month in BANGLA_MONTHS)
 
 

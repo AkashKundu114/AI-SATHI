@@ -1,10 +1,11 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from contextlib import asynccontextmanager
 
 import pytest
-
 from shared.guardrails import budget as budget_module
 
 
@@ -24,7 +25,9 @@ class _FakeDB:
         self._hard_stopped = hard_stopped
 
     async def execute(self, query, params=None):
-        return _FakeChargeResult(self._used, self._total, self._degraded, self._hard_stopped)
+        return _FakeChargeResult(
+            self._used, self._total, self._degraded, self._hard_stopped
+        )
 
     async def commit(self):
         pass
@@ -34,6 +37,7 @@ def _fake_get_db_session(used, total, degraded, hard_stopped):
     @asynccontextmanager
     async def _ctx():
         yield _FakeDB(used, total, degraded, hard_stopped)
+
     return _ctx
 
 
@@ -47,7 +51,9 @@ def _reset():
 @pytest.mark.asyncio
 async def test_charge_credits_returns_updated_status(monkeypatch):
     monkeypatch.setattr(
-        budget_module, "get_db_session", _fake_get_db_session(used=10, total=1000, degraded=False, hard_stopped=False)
+        budget_module,
+        "get_db_session",
+        _fake_get_db_session(used=10, total=1000, degraded=False, hard_stopped=False),
     )
     status = await budget_module.charge_credits("sarvam", 1.0, "text")
     assert status["used"] == 10
@@ -69,6 +75,7 @@ async def test_get_budget_status_uses_cache_within_ttl(monkeypatch):
         class _DB:
             async def execute(self, *a, **kw):
                 return _Row()
+
         yield _DB()
 
     monkeypatch.setattr(budget_module, "get_db_session", lambda: _ctx())
@@ -78,11 +85,12 @@ async def test_get_budget_status_uses_cache_within_ttl(monkeypatch):
     assert call_count["n"] == 1
 
 
-
 @pytest.mark.asyncio
 async def test_is_degraded_true_when_flag_set(monkeypatch):
     monkeypatch.setattr(
-        budget_module, "get_db_session", _fake_get_db_session(used=850, total=1000, degraded=True, hard_stopped=False)
+        budget_module,
+        "get_db_session",
+        _fake_get_db_session(used=850, total=1000, degraded=True, hard_stopped=False),
     )
     assert await budget_module.is_degraded("sarvam") is True
 
@@ -90,7 +98,9 @@ async def test_is_degraded_true_when_flag_set(monkeypatch):
 @pytest.mark.asyncio
 async def test_is_hard_stopped_true_when_flag_set(monkeypatch):
     monkeypatch.setattr(
-        budget_module, "get_db_session", _fake_get_db_session(used=960, total=1000, degraded=True, hard_stopped=True)
+        budget_module,
+        "get_db_session",
+        _fake_get_db_session(used=960, total=1000, degraded=True, hard_stopped=True),
     )
     assert await budget_module.is_hard_stopped("sarvam") is True
 
@@ -101,7 +111,6 @@ async def test_budget_status_falls_open_on_db_error(monkeypatch):
     async def _raising_ctx():
         raise RuntimeError("db down")
         yield
-
 
     monkeypatch.setattr(budget_module, "get_db_session", lambda: _raising_ctx())
 

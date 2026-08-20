@@ -1,4 +1,4 @@
-from shared.observability.email_reporter import render_metrics_html_report, _pct
+from shared.observability.email_reporter import _pct, render_metrics_html_report
 
 
 def test_render_metrics_html_report():

@@ -1,13 +1,11 @@
-import hmac
 import hashlib
+import hmac
 import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-
 from services.gateway import main as gateway
 from shared.config.settings import get_settings
-
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -48,7 +46,10 @@ def test_valid_text_webhook_is_deduped_and_dispatched_once(monkeypatch):
         response = client.post(
             "/webhook/whatsapp",
             content=body,
-            headers={"X-Hub-Signature-256": _signature(body), "content-type": "application/json"},
+            headers={
+                "X-Hub-Signature-256": _signature(body),
+                "content-type": "application/json",
+            },
         )
         assert response.status_code == 200
 
@@ -70,7 +71,10 @@ def test_bad_signature_is_rejected_before_dispatch(monkeypatch):
     response = client.post(
         "/webhook/whatsapp",
         content=body,
-        headers={"X-Hub-Signature-256": "sha256=bad", "content-type": "application/json"},
+        headers={
+            "X-Hub-Signature-256": "sha256=bad",
+            "content-type": "application/json",
+        },
     )
 
     assert response.status_code == 403

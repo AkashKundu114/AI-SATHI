@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-
 from services.gateway.main import app
 from shared.config.settings import get_settings
 
@@ -14,7 +13,9 @@ def test_admin_metrics_email_unauthorized(monkeypatch):
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized"
 
-    response = client.post("/admin/metrics/email", headers={"X-Admin-Token": "wrong_token"})
+    response = client.post(
+        "/admin/metrics/email", headers={"X-Admin-Token": "wrong_token"}
+    )
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized"
 

@@ -1,10 +1,11 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from contextlib import asynccontextmanager
 
 import pytest
-
 from shared.guardrails import poster_dedup as dedup_module
 
 
@@ -49,6 +50,7 @@ def _fake_get_db_session(row=None):
     @asynccontextmanager
     async def _ctx():
         yield _FakeDB(row)
+
     return _ctx
 
 
@@ -61,9 +63,16 @@ async def test_get_cached_poster_returns_none_on_miss(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_cached_poster_returns_dict_on_hit(monkeypatch):
-    monkeypatch.setattr(dedup_module, "get_db_session", _fake_get_db_session(row=("catalog/x/poster.jpg", "flux-pro")))
+    monkeypatch.setattr(
+        dedup_module,
+        "get_db_session",
+        _fake_get_db_session(row=("catalog/x/poster.jpg", "flux-pro")),
+    )
     result = await dedup_module.get_cached_poster("some-key")
-    assert result == {"poster_s3_key": "catalog/x/poster.jpg", "poster_tier": "flux-pro"}
+    assert result == {
+        "poster_s3_key": "catalog/x/poster.jpg",
+        "poster_tier": "flux-pro",
+    }
 
 
 @pytest.mark.asyncio
@@ -73,7 +82,5 @@ async def test_record_poster_does_not_raise_on_db_error(monkeypatch):
         raise RuntimeError("db down")
         yield
 
-
     monkeypatch.setattr(dedup_module, "get_db_session", lambda: _raising_ctx())
     await dedup_module.record_poster("key", "s3key", "flux-pro")
-
