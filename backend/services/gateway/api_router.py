@@ -539,14 +539,33 @@ async def confirm_and_save_ledger(
 
 
 @router.post("/voice")
-async def process_voice_message(user_phone: str = Form("+919876543210"), file: UploadFile = File(...)):
+@router.post("/voice/chat")
+async def process_voice_message(
+    user_phone: str = Form("+919876543210"),
+    file: UploadFile | None = File(None),
+    audio: UploadFile | None = File(None),
+):
     try:
-        content = await file.read()
+        target_file = audio or file
+        if not target_file:
+            return {
+                "status": "success",
+                "transcript": "",
+                "messages": [
+                    {
+                        "type": "text",
+                        "body": "ভয়েস রেকর্ডটি পাওয়া যায়নি। অনুগ্রহ করে আবার রেকর্ড করে পাঠান।",
+                    }
+                ],
+                "trace": ["voice_gateway:no_file"],
+            }
+
+        content = await target_file.read()
         transcript = ""
         try:
             from services.voice_gateway.provider_cascade import transcribe
 
-            stt_result = await transcribe(content, language="bn")
+            stt_result = await transcribe(content, language="bn", user_id=user_phone)
             transcript = stt_result.get("transcript", "").strip()
         except Exception as exc:
             logger.warning("Voice STT error: %s", exc)
