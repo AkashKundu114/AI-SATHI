@@ -48,9 +48,15 @@ export default function Auth({ onLogin }) {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error(`সার্ভার থেকে ত্রুটি হয়েছে (Status ${response.status})। দয়া করে আবার চেষ্টা করুন।`);
+      }
+
       if (!response.ok) {
-        throw new Error(data.detail || (isRegister ? 'Registration failed' : 'Login failed'));
+        throw new Error(data.detail || (isRegister ? 'নিবন্ধন ব্যর্থ হয়েছে।' : 'ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড।'));
       }
 
       if (data.status === 'success' && data.user) {

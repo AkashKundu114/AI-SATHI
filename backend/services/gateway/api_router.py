@@ -162,59 +162,104 @@ async def login_user(payload: LoginRequest) -> dict:
     from shared.db.session import get_db_session
     from shared.security.password_hasher import hash_password, verify_password
 
-    async with get_db_session() as db:
-        user = (
-            await db.execute(
-                select(User).where(or_(User.username == username, User.phone_number == username))
-            )
-        ).scalar_one_or_none()
-
-        # Handle Admin User special initialization if not yet in database
-        if username == "admin":
-            if password != expected_admin_pwd:
-                raise HTTPException(status_code=401, detail="Invalid admin password.")
-
-            if not user:
-                user = User(
-                    username="admin",
-                    password_hash=hash_password(expected_admin_pwd),
-                    phone_number="9064349004",
-                    name="Admin User",
-                    verification_status="verified",
-                    user_type="admin",
+    try:
+        async with get_db_session() as db:
+            user = (
+                await db.execute(
+                    select(User).where(
+                        or_(
+                            User.username == username,
+                            User.phone_number == username,
+                            ((User.phone_number == "9064349004") | (User.phone_number == "+919064349004") if username == "admin" else False),
+                        )
+                    )
                 )
-                db.add(user)
-                await db.commit()
-                await db.refresh(user)
-            elif not user.password_hash:
-                user.password_hash = hash_password(expected_admin_pwd)
-                await db.commit()
+            ).scalars().first()
 
-        elif not user:
-            raise HTTPException(status_code=401, detail="Invalid username or password.")
-        else:
-            # Verify password hash
-            if not user.password_hash:
-                # Fallback for unhashed legacy user: compare with default password and upgrade
+            # Handle Admin User special initialization
+            if username == "admin":
                 if password != expected_admin_pwd:
-                    raise HTTPException(status_code=401, detail="Invalid username or password.")
-                user.password_hash = hash_password(password)
-                await db.commit()
-            elif not verify_password(password, user.password_hash):
-                raise HTTPException(status_code=401, detail="Invalid username or password.")
+                    raise HTTPException(status_code=401, detail="ভুল পাসওয়ার্ড।")
 
-        profile = {
-            "id": str(user.id),
-            "username": getattr(user, "username", None) or username,
-            "phone": user.phone_number or "9064349004",
-            "name": user.name or ("Akash Kundu" if username == "admin" else "User"),
-            "gender": getattr(user, "gender", None) or ("male" if username == "admin" else "male"),
-            "dob": getattr(user, "dob", None) or "",
-            "pincode": getattr(user, "pincode", None) or "",
-            "shg_reg_no": getattr(user, "shg_reg_no", None) or "",
-            "shg_name": "Not specified",
-            "user_type": getattr(user, "user_type", None) or "shg_member",
-        }
+                if not user:
+                    try:
+                        user = User(
+                            username="admin",
+                            password_hash=hash_password(expected_admin_pwd),
+                            phone_number="9064349004",
+                            name="Akash Kundu",
+                            gender="male",
+                            verification_status="verified",
+                            user_type="admin",
+                        )
+                        db.add(user)
+                        await db.commit()
+                        await db.refresh(user)
+                    except Exception:
+                        await db.rollback()
+                        user = (
+                            await db.execute(
+                                select(User).where(
+                                    or_(
+                                        User.username == "admin",
+                                        User.phone_number.endswith("9064349004"),
+                                    )
+                                )
+                            )
+                        ).scalars().first()
+                else:
+                    user.username = "admin"
+                    user.password_hash = hash_password(expected_admin_pwd)
+                    user.name = getattr(user, "name", None) or "Akash Kundu"
+                    user.gender = "male"
+                    user.user_type = "admin"
+                    await db.commit()
+
+            elif not user:
+                raise HTTPException(status_code=401, detail="ব্যবহারকারী পাওয়া যায়নি বা পাসওয়ার্ড ভুল।")
+            else:
+                # Verify password hash
+                if not user.password_hash:
+                    if password != expected_admin_pwd:
+                        raise HTTPException(status_code=401, detail="ভুল পাসওয়ার্ড।")
+                    user.password_hash = hash_password(password)
+                    await db.commit()
+                elif not verify_password(password, user.password_hash):
+                    raise HTTPException(status_code=401, detail="ভুল পাসওয়ার্ড।")
+
+            profile = {
+                "id": str(user.id) if user else "admin_session",
+                "username": getattr(user, "username", None) or username,
+                "phone": getattr(user, "phone_number", None) or "9064349004",
+                "name": getattr(user, "name", None) or ("Akash Kundu" if username == "admin" else "User"),
+                "gender": getattr(user, "gender", None) or ("male" if username == "admin" else "male"),
+                "dob": getattr(user, "dob", None) or "",
+                "pincode": getattr(user, "pincode", None) or "",
+                "shg_reg_no": getattr(user, "shg_reg_no", None) or "",
+                "shg_name": "Not specified",
+                "user_type": getattr(user, "user_type", None) or ("admin" if username == "admin" else "shg_member"),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Login database error: %s", exc)
+        # Admin emergency fallback
+        if username == "admin" and password == expected_admin_pwd:
+            profile = {
+                "id": "admin_session",
+                "username": "admin",
+                "phone": "9064349004",
+                "name": "Akash Kundu",
+                "gender": "male",
+                "dob": "",
+                "pincode": "",
+                "shg_reg_no": "",
+                "shg_name": "Not specified",
+                "user_type": "admin",
+            }
+        else:
+            raise HTTPException(status_code=500, detail="ডাটাবেজ সংযোগে সমস্যা হচ্ছে। একটু পরে চেষ্টা করুন।")
 
     token = jwt.encode({"sub": profile["phone"], "exp": token_exp}, secret, algorithm="HS256")
     return {"status": "success", "user": profile, "token": token}
