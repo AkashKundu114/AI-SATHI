@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 
 from services.orchestrator.state import ConversationState
 from services.orchestrator.model_router import (
@@ -45,27 +46,21 @@ async def _normalize_transcript(transcript: str) -> str:
 EXTRACTION_SYSTEM = (
     "তুমি বাংলা ও গ্রামীণ আর্থিক তথ্য নিষ্কাশনকারী সহকারী। নিচের বাংলা/ইংরেজি/বাংলিশ বার্তা থেকে\n"
     "লেনদেনের তথ্য বের করো এবং শুধুমাত্র এই JSON ফরম্যাটে ফেরত দাও, অন্য কিছু লিখো না:\n\n"
-    '{"transactions": [{"type": "INCOME"|"EXPENSE"|"LEND"|"BORROW", "amount_inr": <total_number>,\n'
+    '{"transactions": [{"type": "INCOME"|"EXPENSE"|"LEND"|"BORROW"|"RECOVERY"|"KISTI"|"SAVINGS"|"WAGES", "amount_inr": <total_number>,\n'
     ' "item_bengali": "...", "quantity": <number|null>, "unit": "...|null"}],\n'
     ' "confidence": <0.0-1.0>}\n\n'
     "IMPORTANT INSTRUCTIONS:\n"
     "1. `amount_inr` MUST be the TOTAL amount in INR. If given per unit and quantity (e.g. '50 takar duto' or '20 takai 1 hali'), calculate total: 50 * 2 = 100.\n"
-    "2. Recognize local traditional Bengali measurement units:\n"
-    "   - 'হালি' / 'hali' = 4 items (e.g. eggs, bananas)\n"
-    "   - 'জোড়া' / 'jora' = 2 items\n"
-    "   - 'কুড়ি' / 'kuri' = 20 items\n"
-    "   - 'মণ' / 'mon' = 40 kg\n"
-    "   - 'সের' / 'ser' = 1 kg\n"
-    "   - 'পোয়া' / 'poya' = 250 g\n"
-    "   - 'বস্তা' / 'bosta' = 1 sack (50 kg)\n"
-    "   - 'আঁটি' / 'aati' = 1 bundle (leafy greens, straw)\n"
-    "   - 'কাঠা' / 'katha', 'বিঘা' / 'bigha' = land units\n"
-    "3. Understand colloquial quantity words:\n"
-    "   - duto/দুটো=2, tinte/তিনটে=3, charte/চারটে=4, pachta/পাঁচটা=5, dosta/দশটা=10, half/হাফ=0.5, der/দেড়=1.5, arai/আড়াই=2.5.\n"
-    "4. Bengali number words to numbers:\n"
-    "   - এক=1, দুই=2, তিন=3, চার=4, পাঁচ=5, ছয়=6, সাত=7, আট=8, নয়=9, দশ=10,\n"
-    "   - পনেরো=15, বিশ/কুড়ি=20, পঁচিশ=25, ত্রিশ=30, চল্লিশ=40, পঞ্চাশ=50, ষাট=60, সত্তর=70, আশি=80, নব্বই=90,\n"
-    "   - একশো/একশ=100, দেড়শো=150, দুইশো=200, আড়াইশো=250, তিনশো=300, চারশো=400, পাঁচশো=500, হাজার=1000.\n"
+    "2. Recognize transaction types carefully:\n"
+    "   - 'INCOME': বিক্রি, বিক্রয়, আয়, উপার্জন, জমা ('beter chair bikri korechi', 'dhan bechechi').\n"
+    "   - 'EXPENSE': খাওয়া, খাওয়া-দাওয়া, কেনা, কেনাকাটা, খরচ, ব্যয়, বাজার, পরিবহন, চা, মোমো, খাবার, ওষুধ ('momo kheyechi 50 takar' -> EXPENSE ₹50, 'tel kinechi 100 takar' -> EXPENSE ₹100).\n"
+    "   - 'LEND': কাউকে ধার দেওয়া, বাকি বিক্রি ('rina di ke 300 dhar diyechi').\n"
+    "   - 'BORROW': কারও থেকে ধার নেওয়া, ঋণ গ্রহণ ('karor theke dhar nilam').\n"
+    "   - 'RECOVERY': বাকি আদায়, ধার ফেরত পাওয়া ('baki pelam', 'dhar ferot pelam').\n"
+    "   - 'KISTI': সমিতির বা ব্যাংকের কিস্তি শোধ ('kisti dilam').\n"
+    "   - 'SAVINGS': সঞ্চয় বা চাঁদা জমা ('sanchay joma').\n"
+    "   - 'WAGES': দৈনিক মজুরি ('majuri pelam' / 'majuri dilam').\n"
+    "3. Understand colloquial quantity and number words.\n"
     "Extract ALL transactions present, even if multiple."
 )
 
@@ -88,11 +83,10 @@ def _strip_json_fences(text: str) -> str:
     return re.sub(r"```json|```", "", text).strip()
 
 
-def _extract_multi_ledger_fallback(transcript: str) -> dict:
-    txs = []
-    text_lower = transcript.lower()
+def _extract_single_clause(clause: str) -> dict | None:
+    text_lower = clause.lower()
     bn_digits = {'০':'0', '১':'1', '২':'2', '৩':'3', '৪':'4', '৫':'5', '৬':'6', '৭':'7', '৮':'8', '৯':'9'}
-    norm_text = transcript
+    norm_text = clause
     for bn, en in bn_digits.items():
         norm_text = norm_text.replace(bn, en)
 
@@ -115,6 +109,9 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
     elif word_amt > 0:
         amount = word_amt
 
+    if amount <= 0:
+        return None
+
     if any(k in text_lower for k in ["baki adaye", "baki adai", "dhar ferot", "baki pelam", "ধার ফেরত", "বাকি আদায়", "ফেরত পেলাম"]):
         tx_type = "RECOVERY"
     elif any(k in text_lower for k in ["kisti", "কিস্তি", "কিস্তি দিলাম", "ঋণ শোধ", "লোন শোধ"]):
@@ -127,10 +124,21 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
         tx_type = "BORROW"
     elif any(k in text_lower for k in ["dhar diyechi", "dhar dilam", "baki bikri", "ধার দিয়েছি", "ধার দিলাম", "ধার দেওয়া", "বাকিতে বিক্রি"]):
         tx_type = "LEND"
-    elif any(k in text_lower for k in ["bought", "buy", "buying", "purchase", "kinechi", "khoroch", "kharach", "খরচ", "ব্যয়", "কিনেছি", "কিনলাম", "সার", "বীজ", "তেল"]):
+    elif any(k in text_lower for k in [
+        "bikri", "bikro", "bikroy", "bechechi", "bechlam", "joma", "pelam", "aaye", "uporjon",
+        "বিক্রি", "বিক্রয়", "বেচেছি", "বেচলাম", "জমা", "পেলাম", "আয়", "উপার্জন"
+    ]):
+        tx_type = "INCOME"
+    elif any(k in text_lower for k in [
+        "bought", "buy", "purchase", "kinechi", "kinlam", "kena", "খরচ", "খরচা", "ব্যয়", "কিনেছি", "কিনলাম", "কেনা",
+        "khoroch", "khorcha", "kharach", "khoroc", "kheyechi", "khelam", "khawa", "khabar", "kheye", "খেয়েছি", "খেলাম", "খাওয়া", "খাবার",
+        "beej", "bij", "বীজ", "tel", "তেল", "bhara", "ভাড়া", "bill", "বিল", "recharge", "রিচার্জ",
+        "osudh", "ooshodh", "medicine", "ওষুধ", "ঔষধ", "momo", "মোমো", "mishti", "মিষ্টি", "tiffin", "টিফিন"
+    ]) or re.search(r'\b(cha|sar|shar)\b', text_lower):
         tx_type = "EXPENSE"
     else:
         tx_type = "INCOME"
+
 
     item = "পণ্য"
     unit = None
@@ -147,10 +155,20 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
     elif "aati" in text_lower or "আটি" in norm_text or "আঁটি" in norm_text:
         unit = "আঁটি"
 
-    if "rice" in text_lower or "chal" in text_lower or "চাল" in norm_text:
+    if "momo" in text_lower or "মোমো" in norm_text:
+        item = "মোমো"
+    elif "chair" in text_lower or "চেয়ার" in norm_text:
+        item = "বেতের চেয়ার" if ("beter" in text_lower or "বেত" in norm_text) else "চেয়ার"
+    elif "cha" in text_lower or "চা" in norm_text:
+        item = "চা/টিফিন"
+    elif "mishti" in text_lower or "মিষ্টি" in norm_text:
+        item = "মিষ্টি"
+    elif "rice" in text_lower or "chal" in text_lower or "চাল" in norm_text:
         item = "চাল"
     elif "dhan" in text_lower or "ধান" in norm_text:
         item = "ধান"
+    elif "papar" in text_lower or "papad" in text_lower or "পাপড়" in norm_text:
+        item = "পাপড়"
     elif "saree" in text_lower or "shari" in text_lower or "শাড়ি" in norm_text or "শাড়ী" in norm_text:
         item = "শাড়ি"
     elif "vegetable" in text_lower or "sobji" in text_lower or "সবজি" in norm_text or "তরকারি" in norm_text:
@@ -165,26 +183,57 @@ def _extract_multi_ledger_fallback(transcript: str) -> dict:
         item = "দুধ"
     elif "murgi" in text_lower or "মুরগি" in norm_text:
         item = "মুরগি"
+    elif "tel" in text_lower or "তেল" in norm_text:
+        item = "তেল"
+    elif "moshla" in text_lower or "mosla" in text_lower or "মশলা" in norm_text or "মসলা" in norm_text:
+        item = "মশলা"
     elif "gohona" in text_lower or "গহনা" in norm_text or "হস্তশিল্প" in norm_text:
         item = "হস্তশিল্প"
-    elif "shar" in text_lower or "সার" in norm_text or "বীজ" in norm_text:
+    elif "shar" in text_lower or "sar" in text_lower or "সার" in norm_text or "বীজ" in norm_text:
         item = "কৃষি সার/বীজ"
     else:
-        item = transcript[:40]
+        cleaned_item = re.sub(
+            r'[\d০-৯]+|\btakar?\b|\btaka\b|টাকার?|টাকা|বিক্রি|করেছি|কিনেছি|খেয়েছি|খেয়েছি|খেলাম|খরচ|লাভ|ধার|diyechi|kheyechi|korechi|bikro|bikri',
+            '', clause, flags=re.IGNORECASE
+        ).strip(' -.,')
+        item = cleaned_item[:30] if cleaned_item else "পণ্য"
 
-    txs.append({
+    return {
+
         "type": tx_type,
-        "amount_inr": amount if amount > 0 else 100,
+        "amount_inr": amount,
         "item_bengali": item,
         "unit": unit
-    })
+    }
+
+
+def _extract_multi_ledger_fallback(transcript: str) -> dict:
+    txs = []
+    clauses = [c.strip() for c in re.split(r'[,;\n]| এবং | আর | and ', transcript) if c.strip()]
+    if len(clauses) > 1:
+        for c in clauses:
+            res = _extract_single_clause(c)
+            if res:
+                txs.append(res)
+    if not txs:
+        single = _extract_single_clause(transcript)
+        if single:
+            txs.append(single)
+        else:
+            txs.append({
+                "type": "INCOME",
+                "amount_inr": 100,
+                "item_bengali": "পণ্য",
+                "unit": None
+            })
 
     return {
         "transactions": txs,
         "overall_confidence": 0.95,
         "raw_transcript": transcript,
-        "extracted_by": "multi_fallback_deterministic",
+        "extracted_by": "deterministic_fallback",
     }
+
 
 
 async def ledger_extract_node(state: ConversationState) -> dict:
@@ -280,39 +329,46 @@ def _build_confirmation_message(pending: dict, transcript: str) -> dict:
 def _confirmation_lines(pending: dict) -> tuple[str, str, str]:
     income_lines, expense_lines = [], []
     total_income, total_expense = 0, 0
-    for tx in pending["transactions"]:
+    for tx in pending.get("transactions", []):
         amt = tx.get("amount_inr", 0)
         amt_bn = to_bengali_digits(amt)
         tx_type = tx.get("type", "INCOME")
-        item = tx.get('item_bengali', '')
+        item = unicodedata.normalize("NFC", str(tx.get('item_bengali', '') or ''))
         if tx_type == "INCOME":
             total_income += amt
-            income_lines.append(f"{item}-এর জন্য ₹{amt_bn} আয়")
+            income_lines.append(unicodedata.normalize("NFC", f"{item}-এর জন্য ₹{amt_bn} আয়"))
         elif tx_type == "EXPENSE":
             total_expense += amt
-            expense_lines.append(f"{item}-এর জন্য ₹{amt_bn} খরচ")
+            expense_lines.append(unicodedata.normalize("NFC", f"{item}-এর জন্য ₹{amt_bn} খরচ"))
         elif tx_type == "LEND":
             total_expense += amt
-            expense_lines.append(f"{item}-কে ₹{amt_bn} ধার দেওয়া হয়েছে")
+            expense_lines.append(unicodedata.normalize("NFC", f"{item}-কে ₹{amt_bn} ধার দেওয়া হয়েছে"))
         elif tx_type == "BORROW":
             total_income += amt
-            income_lines.append(f"{item}-এর কাছ থেকে ₹{amt_bn} ধার নেওয়া হয়েছে")
+            income_lines.append(unicodedata.normalize("NFC", f"{item}-এর কাছ থেকে ₹{amt_bn} ধার নেওয়া হয়েছে"))
         else:
-            expense_lines.append(f"{item}-এর জন্য ₹{amt_bn} (অন্যান্য)")
+            expense_lines.append(unicodedata.normalize("NFC", f"{item}-এর জন্য ₹{amt_bn} (অন্যান্য)"))
     net_profit = total_income - total_expense
-    return "\n".join(income_lines), "\n".join(expense_lines), ""
+    if net_profit >= 0:
+        net_profit_line = unicodedata.normalize("NFC", f"লাভ: ₹{to_bengali_digits(net_profit)}")
+    else:
+        net_profit_line = unicodedata.normalize("NFC", f"ক্ষতি: ₹{to_bengali_digits(abs(net_profit))}")
+    return "\n".join(income_lines), "\n".join(expense_lines), net_profit_line
 
 
 def _build_confirmation_text(pending: dict) -> str:
-    income_lines, expense_lines, _ = _confirmation_lines(pending)
-    lines = ["আমি আপনার হিসাবটি গুছিয়ে নিয়েছি। আপনি কি নিশ্চিত করতে চান যে:"]
+    income_lines, expense_lines, net_profit_line = _confirmation_lines(pending)
+    lines = [unicodedata.normalize("NFC", "আমি আপনার হিসাবটি গুছিয়ে নিয়েছি। আপনি কি নিশ্চিত করতে চান যে:")]
     if income_lines:
         lines.append(income_lines)
     if expense_lines:
         lines.append(expense_lines)
-    lines.append("\nএই হিসাবটি কি ঠিক আছে? (হ্যাঁ/না)")
-    return "\n".join(lines)
+    if net_profit_line and (income_lines or expense_lines):
+        lines.append(net_profit_line)
+    lines.append(unicodedata.normalize("NFC", "\nএই হিসাবটি কি ঠিক আছে? (হ্যাঁ/না)"))
+    return unicodedata.normalize("NFC", "\n".join(lines))
 
 
 def _build_confirmation(pending: dict) -> str:
     return _build_confirmation_text(pending)
+

@@ -10,10 +10,11 @@ from services.orchestrator.model_router import (
 )
 
 FINANCIAL_KEYWORDS = {
-    "bikri", "bikrii", "bikrir", "bikrih", "বিক্রি", "বিক্রির", "বিক্রি করলাম",
+    "bikri", "bikrii", "bikrir", "bikrih", "বিক্রি", "বিক্রির", "বিক্রি করলাম", "bechechi", "বেচেছি", "bechlam", "বেচলাম",
     "sold", "sell", "selling", "sale", "labh", "লাভ", "aay", "আয়", "jama", "জমা",
     "pela", "পেলাম", "pelam", "pabona", "পাবো", "pawa", "পাওয়া", "nogod", "নগদ",
     "bought", "buy", "buying", "purchase", "kharach", "khoroch", "খরচ", "ব্যয়", "byay",
+    "kheyechi", "খেয়েছি", "khelam", "খেলাম", "khawa", "খাওয়া", "momo", "মোমো", "mishti", "মিষ্টি",
     "kinechi", "কিনেছি", "kinlam", "কিনলাম", "dilam", "দিলাম", "diyechi", "দিয়েছি", "dilum",
     "suud", "সুদ", "kisti", "কিস্তি", "bhortuki", "ভর্তুকি", "anudaan", "অনুদানে",
     "dhar", "ধার", "baki", "বাকী", "বাকি", "dena", "দেনা", "powna", "পাওনা", "udhar", "উধার",
@@ -32,8 +33,16 @@ MARKET_KEYWORDS = {"কি বানাবো", "ki banabo", "market", "বা�
 PRICING_KEYWORDS = {"দাম", "dam", "pricing", "দর", "রেট", "rate"}
 
 INTENT_CLASSIFY_SYSTEM = (
-    "তুমি AI-সাথীর ইনটেন্ট ক্লাসিফায়ার।\n"
-    "ব্যবহারকারীর বার্তা পড়ে নিচের একটি ক্যাটাগরি বেছে নাও এবং শুধু JSON ফেরত দাও:\n"
+    "You are the AI-SATHI Intent Classifier and Middleman Translator for rural Bengali/Banglish entrepreneurs.\n"
+    "Categorize the user's message into one of the following:\n"
+    "- 'LEDGER': Any financial transaction, sale, purchase, expense, food consumption, loan, lend, borrow, debt recovery, daily wage, or savings.\n"
+    "- 'LEDGER_REPORT': Asking for monthly statement, balance, or calculation summary.\n"
+    "- 'MARKET': Market trend questions, what to produce.\n"
+    "- 'PRICING': Price checks or suggestions.\n"
+    "- 'NEGOTIATION': Bargaining assistance.\n"
+    "- 'UPGRADE': Plan or account upgrade.\n"
+    "- 'UNKNOWN': General conversation, greetings, village chit-chat, or general questions.\n\n"
+    "Output strictly in JSON:\n"
     '{"feature": "LEDGER" | "LEDGER_REPORT" | "MARKET" | "PRICING" | "NEGOTIATION" | "UPGRADE" | "UNKNOWN", "confidence": <0.0-1.0>}'
 )
 
@@ -43,8 +52,6 @@ async def classify_intent(state: ConversationState) -> dict:
 
     if any(k in text for k in REPORT_KEYWORDS):
         return {"active_feature": "LEDGER_REPORT", "trace": ["intent_router:keyword:LEDGER_REPORT"]}
-    if any(k in text for k in FINANCIAL_KEYWORDS):
-        return {"active_feature": "LEDGER", "trace": ["intent_router:keyword:LEDGER"]}
     if any(k in text for k in UPGRADE_KEYWORDS):
         return {"active_feature": "UPGRADE", "trace": ["intent_router:keyword:UPGRADE"]}
     if any(k in text for k in NEGOTIATION_KEYWORDS):
@@ -53,8 +60,11 @@ async def classify_intent(state: ConversationState) -> dict:
         return {"active_feature": "MARKET", "trace": ["intent_router:keyword:MARKET"]}
     if any(k in text for k in PRICING_KEYWORDS):
         return {"active_feature": "PRICING", "trace": ["intent_router:keyword:PRICING"]}
+    if any(k in text for k in FINANCIAL_KEYWORDS):
+        return {"active_feature": "LEDGER", "trace": ["intent_router:keyword:LEDGER"]}
 
     if not text.strip():
+
         return {"active_feature": "IDLE", "trace": ["intent_router:empty_input"]}
 
     try:

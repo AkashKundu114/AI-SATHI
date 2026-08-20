@@ -596,7 +596,54 @@ async def add_ledger_entry(payload: LedgerEntryCreate, current_user_phone: str =
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.delete("/ledger")
+async def delete_ledger_entries(
+    phone: str,
+    entry_id: str | None = None,
+    current_user_phone: str = Depends(get_current_user_phone)
+) -> dict:
+    """
+    Delete ledger entries for a user (single entry or all entries).
+    Requires JWT authentication.
+    """
+    if phone != current_user_phone:
+        logger.warning(f"IDOR attempt: Token sub {current_user_phone} tried to delete ledger for {phone}")
+        raise HTTPException(status_code=403, detail="Not authorized for this user")
+    try:
+        from shared.db.session import get_db_session
+        from shared.db.models import LedgerEntry
+        from sqlalchemy import delete
+        import uuid as _uuid
+        async with get_db_session() as db:
+            user = await _get_or_create_user(db, phone)
+            if entry_id:
+                try:
+                    eid = _uuid.UUID(entry_id)
+                    stmt = delete(LedgerEntry).where(
+                        (LedgerEntry.user_id == user.id) & (LedgerEntry.id == eid)
+                    )
+                except ValueError:
+                    stmt = delete(LedgerEntry).where(
+                        (LedgerEntry.user_id == user.id) & (LedgerEntry.id == entry_id)
+                    )
+            else:
+                stmt = delete(LedgerEntry).where(LedgerEntry.user_id == user.id)
+
+            res = await db.execute(stmt)
+            await db.commit()
+            return {
+                "status": "success",
+                "message": f"Deleted {res.rowcount} entry/entries"
+            }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Delete ledger entry unexpected error: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get("/storage/documents")
+
 async def list_user_documents(phone: str, current_user_phone: str = Depends(get_current_user_phone)) -> dict:
     """
     List uploaded documents for a user.

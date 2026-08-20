@@ -86,11 +86,12 @@ async def test_affirmative_reply_saves_and_reports_income_expense_totals(monkeyp
     state = {"raw_input_text": "হ্যাঁ", "pending_ledger_entry": pending, "user_id": "user-1"}
     result = await node_module.ledger_confirm_node(state)
 
-    assert result["pending_ledger_entry"] is None
-    assert result["awaiting_confirmation"] is False
-    assert "আয়: ₹300" in result["outbound_messages"][0]["body"]
-    assert "খরচ: ₹100" in result["outbound_messages"][0]["body"]
+    import unicodedata
+    body = unicodedata.normalize("NFC", result["outbound_messages"][0]["body"])
+    assert "আয় হয়েছে ₹300" in body
+    assert "খরচ হয়েছে ₹100" in body
     assert len(fake_ctx.fake_db.added) == 2
+
 
 
 

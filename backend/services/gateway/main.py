@@ -35,7 +35,20 @@ logger = logging.getLogger("gateway")
 app = FastAPI(title="AI-SATHI Platform API", version="2.0.0", docs_url=None, redoc_url=None)
 app.include_router(api_v1_router)
 
+@app.on_event("startup")
+async def on_startup():
+    try:
+        from shared.db.models import Base
+        from shared.db.session import get_engine
+        engine = get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables verified/initialized.")
+    except Exception as exc:
+        logger.warning("Startup DB initialization notice: %s", exc)
+
 MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024 
+ 
 
 
 @app.get("/health")

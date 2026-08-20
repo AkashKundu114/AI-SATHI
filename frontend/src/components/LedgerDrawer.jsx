@@ -31,9 +31,38 @@ export default function LedgerDrawer({ isOpen, onClose, userProfile }) {
     if (isOpen) fetchLedger();
   }, [isOpen]);
 
-  const totalIncome = entries.filter((e) => e.type === 'income').reduce((sum, e) => sum + e.amount, 0);
-  const totalExpense = entries.filter((e) => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
+  const totalIncome = entries
+    .filter((e) => ['income', 'jama', 'recovery'].includes(e.type))
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalExpense = entries
+    .filter((e) => ['expense', 'khoroch', 'borrow', 'lend', 'kisti', 'wages', 'savings'].includes(e.type))
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
   const net = totalIncome - totalExpense;
+
+  const getEntryBadge = (type) => {
+    switch (type) {
+      case 'income':
+      case 'jama':
+        return { label: 'Income', isIncome: true, badgeClass: 'badge-emerald' };
+      case 'recovery':
+        return { label: 'Recovery (আদায়)', isIncome: true, badgeClass: 'badge-emerald' };
+      case 'expense':
+      case 'khoroch':
+        return { label: 'Expense', isIncome: false, badgeClass: 'badge-amber' };
+      case 'lend':
+        return { label: 'Lend (ধার দেওয়া)', isIncome: false, badgeClass: 'badge-amber' };
+      case 'borrow':
+        return { label: 'Borrow (ঋণ গ্রহণ)', isIncome: false, badgeClass: 'badge-amber' };
+      case 'kisti':
+        return { label: 'Kisti (কিস্তি শোধ)', isIncome: false, badgeClass: 'badge-amber' };
+      case 'savings':
+        return { label: 'Savings (সঞ্চয় জমা)', isIncome: false, badgeClass: 'badge-amber' };
+      case 'wages':
+        return { label: 'Wages (মজুরি)', isIncome: false, badgeClass: 'badge-amber' };
+      default:
+        return { label: type || 'Transaction', isIncome: false, badgeClass: 'badge-amber' };
+    }
+  };
 
   return (
     <>
@@ -95,26 +124,31 @@ export default function LedgerDrawer({ isOpen, onClose, userProfile }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {entries.map((entry) => (
-                <div key={entry.id} className="card-sharp" style={{ padding: '0.85rem 1rem', borderLeft: `3px solid ${entry.type === 'income' ? 'var(--accent-emerald)' : 'var(--accent-amber)'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <span className={`badge-sharp ${entry.type === 'income' ? 'badge-emerald' : 'badge-amber'}`} style={{ marginBottom: '0.25rem', display: 'inline-flex' }}>
-                        {entry.type === 'income' ? <><ArrowUpRight size={11} /> Income</> : <><ArrowDownRight size={11} /> Expense</>}
-                      </span>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem' }}>{entry.note || 'No description'}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{entry.category} • {entry.date}</div>
-                    </div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: entry.type === 'income' ? 'var(--accent-emerald)' : 'var(--accent-amber)', whiteSpace: 'nowrap' }}>
-                      ₹{entry.amount?.toLocaleString('en-IN')}
+              {entries.map((entry) => {
+                const badge = getEntryBadge(entry.type);
+                return (
+                  <div key={entry.id} className="card-sharp" style={{ padding: '0.85rem 1rem', borderLeft: `3px solid ${badge.isIncome ? 'var(--accent-emerald)' : 'var(--accent-amber)'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <span className={`badge-sharp ${badge.badgeClass}`} style={{ marginBottom: '0.25rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {badge.isIncome ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                          {badge.label}
+                        </span>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.25rem' }}>{entry.note || 'No description'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{entry.category} • {entry.date}</div>
+                      </div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: badge.isIncome ? 'var(--accent-emerald)' : 'var(--accent-amber)', whiteSpace: 'nowrap' }}>
+                        ₹{entry.amount?.toLocaleString('en-IN')}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
     </>
+
   );
 }

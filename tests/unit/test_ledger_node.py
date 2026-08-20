@@ -14,15 +14,17 @@ def _fake_completion_result(payload: dict, model_used: str = "sarvam-standard") 
 
 
 @pytest.mark.asyncio
-async def test_model_unavailable_returns_friendly_message(monkeypatch):
+async def test_model_unavailable_falls_back_to_deterministic_extraction(monkeypatch):
     async def _raise(**kwargs):
         raise ModelUnavailableError("down")
 
     monkeypatch.setattr(node_module, "route_completion", _raise)
 
     result = await node_module.ledger_extract_node({"raw_input_transcript": "৩০০ টাকা পাপড় বিক্রি করেছি"})
-    assert result["outbound_messages"][0]["body"] == node_module.MODEL_DOWN_MESSAGE
-    assert result["awaiting_confirmation"] is False
+    assert result["awaiting_confirmation"] is True
+    assert result["pending_ledger_entry"] is not None
+    assert result["pending_ledger_entry"]["extracted_by"] == "deterministic_fallback"
+
 
 
 @pytest.mark.asyncio

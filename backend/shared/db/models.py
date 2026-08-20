@@ -11,9 +11,11 @@ from sqlalchemy import (
     Text,
     Integer,
     ARRAY,
+    JSON,
     DateTime,
     UniqueConstraint,
 )
+
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -54,7 +56,8 @@ class User(Base):
     )
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    business_categories: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    business_categories: Mapped[list[str] | None] = mapped_column(ARRAY(String).with_variant(JSON, "sqlite"))
+
     self_reported_literacy: Mapped[str | None] = mapped_column(String(30))
     preferred_modality: Mapped[str] = mapped_column(String(10), default="voice")
     dialect_hint: Mapped[str | None] = mapped_column(String(30))
@@ -64,6 +67,9 @@ class User(Base):
     
     verification_status: Mapped[str] = mapped_column(String(20), default="unverified")
     user_type: Mapped[str | None] = mapped_column(String(30))
+    plan_tier: Mapped[str | None] = mapped_column(String(20), default="free")
+    plan_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 
 class UserVerification(Base):

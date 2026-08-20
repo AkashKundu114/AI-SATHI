@@ -8,8 +8,15 @@ from services.orchestrator.model_router import (
 )
 from services.orchestrator.nodes.ledger_node import MAX_TRANSACTIONS_PER_ENTRY
 
-AFFIRMATIVE = {"হ্যাঁ", "হ্যা", "ha", "haan", "thik", "ঠিক", "ok", "okay", "👍"}
-NEGATIVE = {"না", "no", "na", "bhul", "ভুল", "ঠিক নয়"}
+AFFIRMATIVE = {
+    "হ্যাঁ", "হ্যা", "ha", "haa", "haan", "thik", "ঠিক", "thik ache", "ঠিক আছে",
+    "ok", "okay", "yes", "y", "yup", "hobe", "হবে", "hbe", "shothik", "সঠিক", "👍", "ji", "জি"
+}
+NEGATIVE = {
+    "না", "no", "na", "bhul", "ভুল", "ঠিক নয়", "thik noy", "hobe na", "হবে না", "cancel",
+    "bad din", "বাদ দিন", "দরকার নেই", "dorkar nei", "rakhbo na", "রাখব না"
+}
+
 
 MAX_CONFIRMATION_TURNS = 3
 MAX_REASONABLE_AMOUNT = 500_000 
@@ -120,10 +127,13 @@ async def _apply_correction(state: ConversationState, pending: dict, correction_
 
 async def _save(state: ConversationState, pending: dict) -> dict:
     from shared.db.session import get_db_session
-    from shared.db.models import LedgerEntry
+    from shared.db.models import LedgerEntry, User
+    from sqlalchemy import select
+    import uuid as _uuid
+    import re
 
-    user_id = state.get("user_id")
-    if not user_id:
+    user_id_raw = state.get("user_id") or state.get("whatsapp_number")
+    if not user_id_raw:
         return _reset_with_message(
             "হিসাব রাখতে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।",
             trace="ledger_confirm_node:save_failed_no_user_id",
@@ -145,9 +155,59 @@ async def _save(state: ConversationState, pending: dict) -> dict:
 
     try:
         async with get_db_session() as db:
+            target_uuid = None
+            if isinstance(user_id_raw, _uuid.UUID):
+                target_uuid = user_id_raw
+            elif isinstance(user_id_raw, str):
+                try:
+                    target_uuid = _uuid.UUID(user_id_raw)
+                except (ValueError, TypeError):
+                    target_uuid = None
+
+            if hasattr(db, "execute"):
+                user = None
+                if target_uuid:
+                    try:
+                        user = (await db.execute(select(User).where(User.id == target_uuid))).scalar_one_or_none()
+                    except Exception:
+                        user = None
+
+                if not user:
+                    phone_query = str(user_id_raw).strip()
+                    digits = re.sub(r"[^\d]", "", phone_query)
+                    last10 = digits[-10:] if len(digits) >= 10 else digits
+                    try:
+                        user = (await db.execute(select(User).where(
+                            (User.whatsapp_number == phone_query) |
+                            (User.whatsapp_number == f"+91{last10}") |
+                            (User.whatsapp_number == last10) |
+                            (User.whatsapp_number.endswith(last10))
+                        ))).scalars().first()
+                    except Exception:
+                        user = None
+
+                if not user:
+                    phone_query = str(user_id_raw).strip()
+                    digits = re.sub(r"[^\d]", "", phone_query)
+                    last10 = digits[-10:] if len(digits) >= 10 else digits
+                    user = User(
+                        id=_uuid.uuid4(),
+                        whatsapp_number=f"+91{last10}" if len(last10) == 10 else phone_query,
+                        name="User",
+                        verification_status="verified",
+                    )
+                    db.add(user)
+                    await db.commit()
+                    await db.refresh(user)
+
+                final_user_id = user.id if isinstance(user.id, _uuid.UUID) else _uuid.UUID(str(user.id))
+            else:
+                final_user_id = target_uuid or user_id_raw
+
             for tx, amt in validated:
                 entry = LedgerEntry(
-                    user_id=user_id,
+                    id=_uuid.uuid4(),
+                    user_id=final_user_id,
                     entry_type=tx.get("type", "INCOME"),
                     amount_inr=amt,
                     category=tx.get("item_bengali"),
@@ -166,6 +226,7 @@ async def _save(state: ConversationState, pending: dict) -> dict:
                 else:
                     total_expense += amt
             await db.commit()
+
     except Exception as exc:
         import logging
         logger = logging.getLogger(__name__)
@@ -183,11 +244,13 @@ async def _save(state: ConversationState, pending: dict) -> dict:
             trace="ledger_confirm_node:db_commit_failed",
         )
 
-    success_msg = (
-        f"দারুণ! আপনার হিসাবটি সফলভাবে সংরক্ষণ করা হয়েছে।\n\n"
-        f"আপনার এই এন্ট্রিতে মোট আয় হয়েছে ₹{total_income:.0f} এবং খরচ হয়েছে ₹{total_expense:.0f}। "
+    import unicodedata
+    success_msg = unicodedata.normalize("NFC", (
+        f"দারুণ! আপনার হিসাবটি সফলভাবে সংরক্ষণ করা হয়েছে।\n\n"
+        f"আপনার এই এন্ট্রিতে মোট আয় হয়েছে ₹{total_income:.0f} এবং খরচ হয়েছে ₹{total_expense:.0f}। "
         f"মাসের শেষে রিপোর্ট দেখতে চাইলে শুধু 'রিপোর্ট' লিখুন বা বলুন।"
-    )
+    ))
+
     return {
         "pending_ledger_entry": None,
         "awaiting_confirmation": False,

@@ -9,13 +9,17 @@ class Settings(BaseSettings):
     wa_app_secret: str = ""
 
     wa_ledger_confirm_flow_id: str = ""
-    database_url: str = "sqlite+aiosqlite:///:memory:"
+    database_url: str = "postgresql+asyncpg://aisathi:aisathi@localhost:5432/aisathi"
+
+
 
     sarvam_api_key: str = ""
     sarvam_base_url: str = "https://api.sarvam.ai"
     sarvam_chat_model: str = "sarvam-105b"
     sarvam_advanced_model: str = "sarvam-105b"
+    sarvam_conversational_model: str = "sarvam-105b-conversational"
     sarvam_vision_model: str = "sarvam-vision"
+
     saaras_model: str = "saaras:v3"
     routine_confidence_floor: float = 0.80
 

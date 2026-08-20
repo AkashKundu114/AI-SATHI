@@ -31,8 +31,9 @@ async def general_conversation_node(state: ConversationState) -> dict:
 
     try:
         result = await route_completion(
-            system=CONVERSATION_SYSTEM, prompt=text, criticality=TaskCriticality.ROUTINE, confidence_floor=0.0
+            system=CONVERSATION_SYSTEM, prompt=text, criticality=TaskCriticality.ROUTINE, confidence_floor=0.0, conversational=True
         )
+
         reply_raw = result["text"].strip() or CANNED_FALLBACK
         reply = enforce_output_guard(reply_raw, fallback=CANNED_FALLBACK)
         trace_suffix = "" if reply == reply_raw else ":output_guard_triggered"

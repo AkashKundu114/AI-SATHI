@@ -109,10 +109,12 @@ async def route_completion(
     prompt: str,
     criticality: TaskCriticality,
     tier: AgentTier = AgentTier.STANDARD,
+    conversational: bool = False,
     confidence_floor: float = 0.80,
     user_id: str | None = None,
     task_name: str | None = None,
 ) -> dict:
+
     s = get_settings()
     max_tokens = token_budget_for(task_name) if task_name else DEFAULT_TOKEN_BUDGET
 
@@ -124,9 +126,14 @@ async def route_completion(
         logger.info("Sarvam budget in degraded mode — downgrading ADVANCED tier call to STANDARD")
         effective_tier = AgentTier.STANDARD
 
-    model_name = s.sarvam_advanced_model if effective_tier == AgentTier.ADVANCED else s.sarvam_chat_model
+    if conversational:
+        model_name = getattr(s, "sarvam_conversational_model", "sarvam-105b-conversational")
+    else:
+        model_name = s.sarvam_advanced_model if effective_tier == AgentTier.ADVANCED else s.sarvam_chat_model
+
     if model_name and "105b" in model_name:
         max_tokens = max(max_tokens, 2048)
+
 
     credit_cost = (
         CREDIT_COST_SARVAM_TEXT_ADVANCED if effective_tier == AgentTier.ADVANCED
