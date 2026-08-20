@@ -2,14 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name="ai-sathi-shared",
-    version="0.1.1",
-    description="Shared utilities for AI‑SATHI project",
+    version="2.0.0",
+    description="Shared utilities for AI-SATHI project",
     author="Akash Kundu",
-    author_email="akash@example.com",
-    license="MIT",
+    author_email="akashkundu1152@gmail.com",
+    license="AGPL-3.0",
     packages=find_packages(where="backend"),
     package_dir={"": "backend"},
-    python_requires=">=3.8",
+    python_requires=">=3.11",
     install_requires=[
         "fastapi",
         "pydantic",

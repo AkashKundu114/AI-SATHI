@@ -16,14 +16,13 @@ CHUNK_OVERLAP_CHARS =100
 
 _BENGALI_RANGE =range (0x0980 ,0x09FF +1 )
 _BENGALI_LANGUAGE_RATIO_THRESHOLD =0.15 
+_INSERT_DOCUMENT_SQL = """INSERT INTO scheme_documents (scheme_name, scheme_code, document_type, content_english, source_url, source_file) VALUES (:scheme_name, :scheme_code, :document_type, :content_english, :source_url, :source_file) RETURNING id"""
 
-_INSERT_DOCUMENT_SQL =
+_INSERT_CHUNK_SQL = """INSERT INTO scheme_chunks (document_id, chunk_text, chunk_bengali, embedding, chunk_index) VALUES (:document_id, :chunk_text, :chunk_bengali, :embedding, :chunk_index)"""
 
-_INSERT_CHUNK_SQL =
+_DEACTIVATE_EXISTING_SQL = """UPDATE scheme_documents SET is_active = false WHERE source_file = :source_file"""
 
-_DEACTIVATE_EXISTING_SQL =
-
-_EXISTING_ACTIVE_SQL =
+_EXISTING_ACTIVE_SQL = """SELECT id FROM scheme_documents WHERE source_file = :source_file AND is_active = true"""
 
 def _load_manifest ()->dict :
     if not MANIFEST_PATH .exists ():

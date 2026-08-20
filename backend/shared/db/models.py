@@ -39,7 +39,7 @@ class User (Base ):
     __tablename__ ="users"
 
     id :Mapped [uuid .UUID ]=mapped_column (primary_key =True ,default =uuid .uuid4 )
-    whatsapp_number :Mapped [str ]=mapped_column (
+    phone_number :Mapped [str ]=mapped_column (
     String (20 ),unique =True ,nullable =False 
     )
     name :Mapped [str |None ]=mapped_column (String (255 ))

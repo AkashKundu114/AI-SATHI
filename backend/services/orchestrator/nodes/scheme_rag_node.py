@@ -16,7 +16,7 @@ async def scheme_rag_node (state :ConversationState )->dict :
 
     rag_result =await query_scheme_rag (
     query =query ,
-    user_context ={"whatsapp_number":state .get ("whatsapp_number")},
+    user_context ={"phone_number":state .get ("phone_number")},
     scheme_filter =state .get ("scheme_filter"),
     )
 

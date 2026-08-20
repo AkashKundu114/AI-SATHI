@@ -29,7 +29,7 @@ async def review_verifications ():
         for uv ,user in records :
             print ("-"*50 )
             print (f"User ID       : {user .id }")
-            print (f"WhatsApp      : {user .whatsapp_number }")
+            print (f"Web      : {user .phone_number }")
             print (f"User Type     : {user .user_type }")
             print (f"Doc Type      : {uv .doc_type }")
             print (f"Doc ID Number : {uv .doc_id_number }")
@@ -63,7 +63,7 @@ async def review_verifications ():
             .values (verification_status =user_status )
             )
             await db .commit ()
-            print (f"[+] User {user .whatsapp_number } marked as {user_status }.")
+            print (f"[+] User {user .phone_number } marked as {user_status }.")
 
         print ("-"*50 )
         print ("[+] Review complete.")

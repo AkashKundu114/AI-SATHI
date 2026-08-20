@@ -100,7 +100,7 @@ async def catalog_node (state :ConversationState )->dict :
     **state_clears ,
     "catalog_result":{
     "product_type":product_info .get ("product_type"),
-    "caption_bengali":captions ["whatsapp_caption"],
+    "caption_bengali":captions ["web_caption"],
     "ad_caption_bengali":captions ["ad_caption"],
     "price_min":price_min ,
     "price_max":price_max ,
@@ -123,7 +123,7 @@ async def _build_delivery_messages (processed_bytes ,processed_key ,product_info
                 poster_url =generate_read_url (cached ["poster_s3_key"])
                 return (
                 [
-                {"type":"image","url":poster_url ,"caption":captions ["whatsapp_caption"]},
+                {"type":"image","url":poster_url ,"caption":captions ["web_caption"]},
                 {"type":"text","body":"ইংরেজিতেও ক্যাপশন চান? (শহুরে কাস্টমারদের জন্য) - 'হ্যাঁ' লিখুন।"},
                 ],
                 cached ["poster_s3_key"],
@@ -152,7 +152,7 @@ async def _build_delivery_messages (processed_bytes ,processed_key ,product_info
                 await record_poster (dedup_key ,poster_key ,poster_tier )
             return (
             [
-            {"type":"image","url":poster_url ,"caption":captions ["whatsapp_caption"]},
+            {"type":"image","url":poster_url ,"caption":captions ["web_caption"]},
             {"type":"text","body":"ইংরেজিতেও ক্যাপশন চান? (শহুরে কাস্টমারদের জন্য) - 'হ্যাঁ' লিখুন।"},
             ],
             poster_key ,
@@ -171,7 +171,7 @@ async def _build_delivery_messages (processed_bytes ,processed_key ,product_info
         )
 
     messages =[
-    {"type":"image","url":processed_url ,"caption":captions ["whatsapp_caption"]},
+    {"type":"image","url":processed_url ,"caption":captions ["web_caption"]},
     {"type":"text","body":"📣 বিজ্ঞাপনের জন্য এই সংক্ষিপ্ত বার্তাটিও ব্যবহার করতে পারেন:\n\n"+ad_caption_full },
     {"type":"text","body":"ইংরেজিতেও ক্যাপশন চান? (শহুরে কাস্টমারদের জন্য) - 'হ্যাঁ' লিখুন।"},
     ]
@@ -226,7 +226,7 @@ async def _record_creation (state ,raw_key ,processed_key ,product_info ,caption
             raw_image_s3_key =raw_key ,
             processed_image_s3_key =processed_key ,
             product_type =product_info .get ("product_type"),
-            caption_bengali =captions ["whatsapp_caption"],
+            caption_bengali =captions ["web_caption"],
             ad_caption_bengali =captions ["ad_caption"],
             price_suggestion_min =price_min ,
             price_suggestion_max =price_max ,

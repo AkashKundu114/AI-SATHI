@@ -9,13 +9,13 @@ from shared .db .session import get_db_session
 from shared .metering .usage_tracker import get_user_plan_tier 
 
 async def load_user_profile_node (state :ConversationState )->dict :
-    whatsapp_number =state .get ("whatsapp_number")or state .get ("user_id")or "+919876543210"
+    phone_number =state .get ("phone_number")or state .get ("user_id")or "+919876543210"
     db_error =False 
 
     try :
         async with get_db_session ()as db :
             user =(
-            await db .execute (select (User ).where (User .whatsapp_number ==whatsapp_number ))
+            await db .execute (select (User ).where (User .phone_number ==phone_number ))
             ).scalar_one_or_none ()
     except Exception :
         db_error =True 

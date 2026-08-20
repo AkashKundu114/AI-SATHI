@@ -8,12 +8,10 @@ import logging
 from shared .config .settings import get_settings 
 from shared .storage .blob_client import upload_bytes 
 from shared .db .dedup import mark_seen_or_skip ,check_and_increment_rate_limit 
-from shared .whatsapp .parser import parse_webhook_payload 
+from shared .web .parser import parse_webhook_payload 
 from services .gateway .turn_processor import process_turn_and_dispatch 
 from services .voice_gateway .provider_cascade import transcribe 
-from shared .whatsapp .media import (
-download_whatsapp_audio ,
-download_whatsapp_image ,
+from shared .web .media import (
 MediaTooLargeError ,
 )
 from shared .security .audit_log import log_security_event 
@@ -72,7 +70,7 @@ async def _collect_and_send_metrics (recipient :str |None =None ):
     metrics =await collect_system_metrics ()
     await send_metrics_email (metrics ,recipient_email =recipient )
 
-@app .get ("/webhook/whatsapp")
+@app .get ("/webhook/web")
 async def verify_webhook (request :Request ):
     s =get_settings ()
     p =request .query_params 
@@ -84,7 +82,7 @@ async def verify_webhook (request :Request ):
     log_security_event ("webhook_verification_failed",source_ip =request .client .host if request .client else None )
     raise HTTPException (status_code =403 ,detail ="Verification failed")
 
-@app .post ("/webhook/whatsapp")
+@app .post ("/webhook/web")
 async def receive_message (request :Request ,background_tasks :BackgroundTasks ):
     client_ip =request .client .host if request .client else "unknown"
     try :
@@ -128,7 +126,7 @@ async def receive_message (request :Request ,background_tasks :BackgroundTasks )
 
         under_limit =await check_and_increment_rate_limit (msg .from_number ,s .max_messages_per_hour )
         if not under_limit :
-            log_security_event ("rate_limit_exceeded",source_ip =client_ip ,whatsapp_number =msg .from_number )
+            log_security_event ("rate_limit_exceeded",source_ip =client_ip ,phone_number =msg .from_number )
             return {"status":"ok"}
 
         background_tasks .add_task (_dispatch_to_orchestrator ,msg )
@@ -148,15 +146,13 @@ async def _dispatch_to_orchestrator (msg ):
             turn_input ["raw_input_text"]=msg .text 
 
         elif msg .message_type =="audio":
-            audio_bytes =await download_whatsapp_audio (msg .audio_id )
-            stt_result =await transcribe (audio_bytes )
+            audio_bytes =await             stt_result =await transcribe (audio_bytes )
             turn_input ["raw_input_transcript"]=stt_result ["transcript"]
             turn_input ["transcript_provider"]=stt_result ["provider"]
             turn_input ["transcript_confidence"]=stt_result ["confidence"]
 
         elif msg .message_type =="image":
-            image_bytes =await download_whatsapp_image (msg .image_id )
-            key =f"catalog-raw/{msg .from_number }/{uuid .uuid4 ().hex [:10 ]}.jpg"
+            image_bytes =await             key =f"catalog-raw/{msg .from_number }/{uuid .uuid4 ().hex [:10 ]}.jpg"
             upload_bytes (key ,image_bytes ,content_type ="image/jpeg")
             turn_input ["raw_image_s3_key"]=key 
 
@@ -169,7 +165,7 @@ async def _dispatch_to_orchestrator (msg ):
         await process_turn_and_dispatch (msg .from_number ,turn_input )
 
     except MediaTooLargeError :
-        from shared .whatsapp .sender import send_text 
+        from shared .web .sender import send_text 
 
         friendly =(
         "ভয়েস নোটটা অনেক বড়। ৩ মিনিটের কম রেকর্ড করে আবার পাঠান।"
@@ -180,7 +176,7 @@ async def _dispatch_to_orchestrator (msg ):
 
     except Exception :
         logger .exception ("_dispatch_to_orchestrator: unhandled error for %s",msg .from_number )
-        from shared .whatsapp .sender import send_text 
+        from shared .web .sender import send_text 
 
         await send_text (msg .from_number ,"দুঃখিত, একটু সমস্যা হয়েছে। আবার চেষ্টা করুন।")
 

@@ -4,7 +4,7 @@ import json
 
 from services .orchestrator .state import ConversationState 
 from services .orchestrator .nodes .ledger_confirm_node import _save ,_reset_with_message 
-from shared .whatsapp .flow_schema import validate_ledger_confirm_payload 
+from shared .web .flow_schema import validate_ledger_confirm_payload 
 
 async def ledger_confirm_flow_node (state :ConversationState )->dict :
     pending =state .get ("pending_ledger_entry")

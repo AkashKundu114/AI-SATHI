@@ -19,7 +19,7 @@ CAPTION_SYSTEM =(
 "তুমি গ্রামীণ স্বনির্ভর গোষ্ঠীর মহিলাদের জন্য একজন বিজ্ঞাপন লেখক।\n\n"
 f"{DIGNITY_RULES_BENGALI }\n\n"
 "দেওয়া পণ্যের তথ্যের ভিত্তিতে, শুধুমাত্র এই JSON ফরম্যাটে ফেরত দাও, অন্য কিছু লিখো না:\n\n"
-'{"whatsapp_caption": "<৪ লাইনের মধ্যে: পণ্যের নাম, ১-২টি বৈশিষ্ট্য, '
+'{"web_caption": "<৪ লাইনের মধ্যে: পণ্যের নাম, ১-২টি বৈশিষ্ট্য, '
 'দামের পরিসীমা (₹X-₹Y), সংক্ষিপ্ত CTA - কাস্টমার গ্রুপে পাঠানোর উপযোগী, উষ্ণ সুরে>",\n'
 ' "ad_caption": "<২ লাইনের মধ্যে: হুক + জরুরিতা/আকর্ষণ + CTA - বিজ্ঞাপনের জন্য '
 'সংক্ষিপ্ত ও আকর্ষণীয়, বেশি ইমোজি নয়>"}\n\n'
@@ -27,7 +27,7 @@ f"{DIGNITY_RULES_BENGALI }\n\n"
 "পণ্যের মান নিয়ে কখনো নেতিবাচক বা করুণাসূচক মন্তব্য কোরো না (যেমন 'সাধারণ মানের হলেও')।"
 )
 
-_FALLBACK_WHATSAPP_CAPTION ="✨ নতুন পণ্য এসেছে! বিস্তারিত জানতে যোগাযোগ করুন।"
+_FALLBACK_WEB_CAPTION ="✨ নতুন পণ্য এসেছে! বিস্তারিত জানতে যোগাযোগ করুন।"
 _FALLBACK_AD_CAPTION ="নতুন পণ্য এখন উপলব্ধ - আজই অর্ডার করুন!"
 
 async def analyze_product_image (image_bytes :bytes ,user_id :str |None =None )->dict :
@@ -70,10 +70,10 @@ product_info :dict ,shg_name :str ="",user_id :str |None =None
     try :
         parsed =json .loads (re .sub (r"```json|```","",result ["text"]).strip ())
         captions ={
-        "whatsapp_caption":parsed .get ("whatsapp_caption")or _FALLBACK_WHATSAPP_CAPTION ,
+        "web_caption":parsed .get ("web_caption")or _FALLBACK_WEB_CAPTION ,
         "ad_caption":parsed .get ("ad_caption")or _FALLBACK_AD_CAPTION ,
         }
     except (json .JSONDecodeError ,TypeError ):
-        captions ={"whatsapp_caption":_FALLBACK_WHATSAPP_CAPTION ,"ad_caption":_FALLBACK_AD_CAPTION }
+        captions ={"web_caption":_FALLBACK_WEB_CAPTION ,"ad_caption":_FALLBACK_AD_CAPTION }
 
     return captions ,(price_min ,price_max )

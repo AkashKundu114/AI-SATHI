@@ -1,58 +1,36 @@
-# AI-SATHI Documentation & Handover Guide
+# AI-SATHI Documentation
 
-Welcome to the **AI-SATHI v2 (Late-2026 Production Release)** documentation repository. AI-SATHI is an AI-powered conversational operating system and financial ledger designed for rural micro-entrepreneurs and Self-Help Groups (SHGs) across West Bengal and India.
+Comprehensive documentation for the AI-SATHI v2.0 production release.
 
----
+## Index
 
-## 📑 Core Documentation Index
-
-| Document | Purpose |
+| Document | Description |
 |---|---|
-| [`architecture.md`](architecture.md) | **Comprehensive System Architecture**: LangGraph FSM, Sarvam AI Middleman (`saaras:v4`, `mayura:v1`, `sarvam-105b`, `sarvam-105b-conversations`, `Parse`, `Vision`), PostgreSQL + pgvector storage, and Docker containerization. (See §13 for latest updates). |
-| [`product.md`](product.md) | **Product Requirements & Specifications**: 8 Bengali/Banglish transaction modes, zero-interference conversational separation, user onboarding flows, and visual catalog generation. |
-| [`engineering-review.md`](engineering-review.md) | **Engineering Audit & Verification**: Complete test suite pass (`389 passed`), PostgreSQL performance tuning, and low-cost container optimizations. |
-| [`security.md`](security.md) | **Security Architecture**: JWT auth, rate limiting, HMAC-SHA256 WhatsApp signature validation, input sanitization, and PII masking. |
-| [`red-team.md`](red-team.md) | **Adversarial Audit**: Boundary testing on dialect edge cases, prompt injections, and balance overflow guards. |
-| [`runbooks/restore.md`](runbooks/restore.md) | **Operations & Disaster Recovery**: PostgreSQL backup/restore, Docker stack recovery, and database migration runbooks. |
+| [**architecture.md**](architecture.md) | System architecture - LangGraph FSM, Sarvam AI middleman stack, PostgreSQL + pgvector, Docker containerization |
+| [**product.md**](product.md) | Product requirements - 8 Bengali/Banglish transaction modes, conversational separation, onboarding flows |
+| [**engineering-review.md**](engineering-review.md) | Engineering audit - 390-test suite pass, PostgreSQL tuning, container optimizations |
+| [**security.md**](security.md) | Security architecture - JWT auth, rate limiting, HMAC-SHA256 validation, input sanitization, PII masking |
+| [**red-team.md**](red-team.md) | Adversarial audit - dialect edge cases, prompt injection, balance overflow, pen test results |
+| [**runbooks/restore.md**](runbooks/restore.md) | Operations - PostgreSQL backup/restore, Docker recovery, migration runbooks |
 
----
-
-## 🚀 Quick Start (Docker Deployment)
-
-The entire AI-SATHI stack is containerized with zero local software dependencies (aside from Docker Desktop):
+## Quick Start
 
 ```bash
-# 1. Clone the repository and navigate to root
 cd AI-SATHI
-
-# 2. Configure environment variables (optional, defaults provided)
-cp .env.example .env
-
-# 3. Build and launch all services via Docker Compose
-docker compose up --build -d app postgres azurite
-
-# 4. Check running containers
-docker compose ps
+cp .env.example .env        # Configure credentials
+docker compose up --build -d # Launch full stack
 ```
 
-The application is immediately accessible at **`http://localhost:8000/`**.
-Default Admin Login: Username: `admin` | Password: `admin` (maps to phone `9064349004`).
+App: `http://localhost:8000/` - Default login: `admin` / `admin`
 
----
+## Architecture
 
-## 🏛️ System Architecture
+![System Architecture](assets/architecture_diagram.svg)
 
-![AI-SATHI System Architecture](assets/architecture_diagram.svg)
+## Application Flow
 
----
+![App Flow](assets/app_flow_diagram.svg)
 
-## 🔄 End-to-End Application & Decision Flow
+## Sarvam AI Model Stack
 
-![AI-SATHI App Flow Diagram](assets/app_flow_diagram.svg)
-
----
-
-## 🧠 Sarvam AI Middleman Model Stack
-
-![Sarvam AI Model Stack](assets/sarvam_middleman_stack.svg)
-
+![Sarvam Model Stack](assets/sarvam_middleman_stack.svg)

@@ -153,7 +153,7 @@ async def _save (state :ConversationState ,pending :dict )->dict :
     import uuid as _uuid 
     import re 
 
-    user_id_raw =state .get ("user_id")or state .get ("whatsapp_number")
+    user_id_raw =state .get ("user_id")or state .get ("phone_number")
     if not user_id_raw :
         return _reset_with_message (
         "হিসাব রাখতে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।",
@@ -199,10 +199,10 @@ async def _save (state :ConversationState ,pending :dict )->dict :
                     last10 =digits [-10 :]if len (digits )>=10 else digits 
                     try :
                         user =(await db .execute (select (User ).where (
-                        (User .whatsapp_number ==phone_query )|
-                        (User .whatsapp_number ==f"+91{last10 }")|
-                        (User .whatsapp_number ==last10 )|
-                        (User .whatsapp_number .endswith (last10 ))
+                        (User .phone_number ==phone_query )|
+                        (User .phone_number ==f"+91{last10 }")|
+                        (User .phone_number ==last10 )|
+                        (User .phone_number .endswith (last10 ))
                         ))).scalars ().first ()
                     except Exception :
                         user =None 
@@ -213,7 +213,7 @@ async def _save (state :ConversationState ,pending :dict )->dict :
                     last10 =digits [-10 :]if len (digits )>=10 else digits 
                     user =User (
                     id =_uuid .uuid4 (),
-                    whatsapp_number =f"+91{last10 }"if len (last10 )==10 else phone_query ,
+                    phone_number =f"+91{last10 }"if len (last10 )==10 else phone_query ,
                     name ="User",
                     verification_status ="verified",
                     )

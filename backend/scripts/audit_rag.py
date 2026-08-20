@@ -33,7 +33,7 @@ async def _run_one (scheme_name :str ,question :str )->dict :
 
     result =await query_scheme_rag (
     query =question ,
-    user_context ={"whatsapp_number":"audit-script"},
+    user_context ={"phone_number":"audit-script"},
     scheme_filter =[scheme_name ],
     )
     grounding =verify_grounding (result ["answer_bengali"],result ["citations_full"])

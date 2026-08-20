@@ -1,23 +1,35 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
+## [2.0.0] - 2026-08-20
 
 ### Added
-- **JWT Authentication**: Implemented enterprise-grade JWT-based authentication in API Gateway (`api_router.py`), replacing legacy hardcoded administrative keys.
-- **IDOR Protection**: Secured `/ledger`, `/ledger/confirm`, and `/storage/documents` with strict explicit token-subject matching.
-- **SAS URL Generation**: Dynamic Time-Limited SAS URL generation for Azure Blob Storage in `azure_client.py` and document endpoints to prevent unauthorized blob access (Red Team 11.3).
-- **Retention Scripts**: Created `scripts/cleanup_postgres_retention.sql` for truncating outdated deduplication payloads and managing DB bloat (Red Team 11.1).
+- **Sarvam AI exclusive stack**: `saaras:v4`, `mayura:v1`, `sarvam-105b`, `sarvam-105b-conversations`, `Parse`, `Vision`
+- **Multi-turn Bengali context**: Conversation state tracks last discussed/rejected ledger entries for correction flow
+- **Bengali dialect support**: Handles local product slang (e.g., sorser tel = mustard oil) with contextual continuation
+- **390-test suite**: Full offline coverage for security, edge cases, and behavioral validation
+- **Red team / blue team / pen test audit**: Documented in `docs/red-team.md` Section 12
+- **SVG architecture diagrams**: System architecture, app flow, and Sarvam model stack in `docs/assets/`
+- **JWT Authentication**: Enterprise-grade JWT auth in API Gateway
+- **IDOR Protection**: Strict token-subject matching on `/ledger` and `/storage/documents`
+- **GitHub Actions CI/CD**: Test + lint pipeline and GHCR deploy workflow
 
 ### Changed
-- **Exception Handling**: Removed overly broad `except Exception:` catches in favor of explicit `SQLAlchemyError` catches with safe logging across the router and LangGraph nodes.
-- **Ledger Commit Bounds**: Strengthened upper-bounds checks (`MAX_REASONABLE_AMOUNT`) during confirmation steps (Red Team High-4).
-- **Code Quality**: Applied complete `-> dict` type-hinting and detailed docstring structures to API Gateway endpoints as per Microsoft Code Quality practices.
-- **Documentation**: Revamped `README.md` to highlight the production readiness and Google XYZ impact formula statement.
+- **Model router simplified**: Single direct Sarvam call instead of multi-model cascade loop
+- **Confirmation flow separation**: Clean routing for affirmative/negative/correction responses
+- **Codebase cleanup**: Comments stripped, em-dashes normalized, stale files removed
+- **Repository restructured**: Removed duplicate `services/`, `scripts/` shims; fixed Makefile and Docker paths
 
 ### Removed
-- **OpenAI Fallbacks**: Entirely removed the OpenAI fallback tier from the orchestrator in favor of self-hosted local Ollama implementations to strictly comply with budget and privacy designs.
+- **OpenAI dependency**: Entirely removed in favor of Sarvam AI + local Ollama fallback
+- **Bulbul TTS**: No text-to-speech - voice notes only via `saaras:v4`
+
+## [1.0.0] - 2026-08-01
+
+### Added
+- Initial release with voice ledger, catalog creator, pricing, negotiation, market predictor
+- LangGraph state machine with PostgreSQL checkpointing
+- WhatsApp Cloud API integration
+- Self-hosted Ollama + faster-whisper fallback tier

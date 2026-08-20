@@ -68,10 +68,10 @@ async def login_user (payload :LoginRequest )->dict :
         from shared .db .models import User 
         from sqlalchemy import select 
         async with get_db_session ()as db :
-            user =(await db .execute (select (User ).where (User .whatsapp_number ==phone ))).scalar_one_or_none ()
+            user =(await db .execute (select (User ).where (User .phone_number ==phone ))).scalar_one_or_none ()
             if not user :
                 user =User (
-                whatsapp_number =phone ,
+                phone_number =phone ,
                 name ="Admin User"if phone =="9064349004"else "নতুন ব্যবহারকারী",
                 verification_status ="verified",
                 )
@@ -84,7 +84,7 @@ async def login_user (payload :LoginRequest )->dict :
                 await db .refresh (user )
             profile ={
             "id":str (user .id ),
-            "phone":user .whatsapp_number or phone ,
+            "phone":user .phone_number or phone ,
             "name":user .name or "Admin User",
             "shg_name":"Not specified",
             "district":getattr (user ,"district",None )or "Unknown",
@@ -122,7 +122,7 @@ async def process_chat_message (payload :dict [str ,Any ],current_user_phone :st
         graph =await get_compiled_graph ()
         config ={"configurable":{"thread_id":user_phone }}
         state_input ={
-        "whatsapp_number":user_phone ,
+        "phone_number":user_phone ,
         "user_id":user_phone ,
         "last_message_type":"text",
         "raw_input_text":sanitized ,
@@ -184,7 +184,7 @@ async def parse_ledger_from_text (payload :ParseRequest ,current_user_phone :str
             config ={"configurable":{"thread_id":f"{payload .user_phone }_parse"}}
 
             state_input ={
-            "whatsapp_number":payload .user_phone ,
+            "phone_number":payload .user_phone ,
             "user_id":payload .user_phone ,
             "is_new_user":False ,
             "onboarding_step":"DONE",
@@ -248,17 +248,17 @@ async def _get_or_create_user (db ,raw_phone :str ):
     last10 =digits [-10 :]if len (digits )>=10 else digits 
 
     query =select (User ).where (
-    (User .whatsapp_number ==phone )|
-    (User .whatsapp_number ==f"+{digits }")|
-    (User .whatsapp_number ==f"+91{last10 }")|
-    (User .whatsapp_number ==last10 )|
-    (User .whatsapp_number .endswith (last10 ))
+    (User .phone_number ==phone )|
+    (User .phone_number ==f"+{digits }")|
+    (User .phone_number ==f"+91{last10 }")|
+    (User .phone_number ==last10 )|
+    (User .phone_number .endswith (last10 ))
     )
     user =(await db .execute (query )).scalars ().first ()
 
     if not user :
         user =User (
-        whatsapp_number =f"+91{last10 }"if len (last10 )==10 else phone ,
+        phone_number =f"+91{last10 }"if len (last10 )==10 else phone ,
         name =f"User {last10 }",
         consent_given =True ,
         trust_stage ="verified"
@@ -377,7 +377,7 @@ file :UploadFile =File (...)
         config ={"configurable":{"thread_id":user_phone }}
 
         state_input ={
-        "whatsapp_number":user_phone ,
+        "phone_number":user_phone ,
         "user_id":user_phone ,
         "last_message_type":"audio",
         "raw_input_transcript":transcript ,

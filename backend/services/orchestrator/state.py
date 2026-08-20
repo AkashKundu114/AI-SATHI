@@ -38,7 +38,7 @@ class UserProfile (TypedDict ,total =False ):
     user_type :str |None 
 
 class ConversationState (TypedDict ,total =False ):
-    whatsapp_number :str 
+    phone_number :str 
     user_id :str |None 
     is_new_user :bool 
     user_profile :UserProfile |None 

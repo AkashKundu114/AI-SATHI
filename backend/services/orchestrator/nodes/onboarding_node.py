@@ -101,7 +101,7 @@ async def _create_user (state :ConversationState )->str :
 
     async with get_db_session ()as db :
         user =User (
-        whatsapp_number =state ["whatsapp_number"],
+        phone_number =state ["phone_number"],
         name =state .get ("onboarding_name"),
         block =state .get ("onboarding_block"),
         consent_given =True ,

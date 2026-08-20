@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 _SCRIPT_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "seed_schemes.py")
+    os.path.join(os.path.dirname(__file__), "..", "..", "backend", "scripts", "seed_schemes.py")
 )
 _spec = importlib.util.spec_from_file_location("seed_schemes", _SCRIPT_PATH)
 seed_schemes = importlib.util.module_from_spec(_spec)

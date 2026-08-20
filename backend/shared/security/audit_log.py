@@ -11,7 +11,7 @@ event_type :str ,
 *,
 source_ip :str |None =None ,
 user_id :str |None =None ,
-whatsapp_number :str |None =None ,
+phone_number :str |None =None ,
 details :dict |None =None ,
 )->None :
 
@@ -20,7 +20,7 @@ details :dict |None =None ,
     "event_type":event_type ,
     "source_ip":source_ip or "unknown",
     "user_id":user_id or "anonymous",
-    "whatsapp_number":whatsapp_number or "unknown",
+    "phone_number":phone_number or "unknown",
     "details":details or {},
     }
     audit_logger .warning ("SECURITY_EVENT: %s",json .dumps (payload ))
