@@ -29,6 +29,17 @@ jobs:
         env:
           OWNER: ${{ github.repository_owner }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend distribution
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Build and push image
         id: build_image
         uses: docker/build-push-action@v6

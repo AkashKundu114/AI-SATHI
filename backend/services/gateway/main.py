@@ -198,6 +198,15 @@ async def _dispatch_to_orchestrator(msg):
         await send_text(msg.from_number, "দুঃখিত, একটু সমস্যা হয়েছে। আবার চেষ্টা করুন।")
 
 
-web_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "dist")
-if os.path.exists(web_dist_path):
+candidate_paths = [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "dist"),
+    "/app/frontend/dist",
+    "/app/dist",
+    os.path.join(os.getcwd(), "frontend", "dist"),
+]
+web_dist_path = next((p for p in candidate_paths if os.path.isdir(p)), None)
+if web_dist_path:
+    logger.info("Serving web UI static assets from %s", web_dist_path)
     app.mount("/", StaticFiles(directory=web_dist_path, html=True), name="static")
+
