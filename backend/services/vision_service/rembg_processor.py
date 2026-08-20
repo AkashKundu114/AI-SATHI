@@ -24,6 +24,30 @@ def _get_session():
     return _session
 
 
+def _is_image_complete(raw_bytes: bytes) -> bool:
+    if not raw_bytes or len(raw_bytes) < 64:
+        return False
+
+    # JPEG: starts with SOI (0xFFD8) and must end with EOI (0xFFD9)
+    if raw_bytes.startswith(b"\xff\xd8"):
+        trimmed = raw_bytes.rstrip(b"\x00\r\n\t ")
+        return trimmed.endswith(b"\xff\xd9")
+
+    # PNG: starts with signature and must end with IEND chunk
+    if raw_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return b"IEND" in raw_bytes[-16:]
+
+    # WebP: starts with RIFF and has matching length
+    if raw_bytes.startswith(b"RIFF") and len(raw_bytes) >= 12:
+        if raw_bytes[8:12] == b"WEBP":
+            import struct
+
+            expected_size = struct.unpack("<I", raw_bytes[4:8])[0] + 8
+            return len(raw_bytes) >= expected_size
+
+    return True
+
+
 def _quality_check(img: Image.Image) -> str | None:
     if img.width * img.height > MAX_PIXELS:
         return "ছবিটা অস্বাভাবিক বড় মাপের। অন্য ছবি পাঠান।"
@@ -47,7 +71,7 @@ def _gradient_background(size: tuple[int, int]) -> Image.Image:
 
 
 def process_product_image(raw_bytes: bytes) -> tuple[bytes | None, str | None]:
-    if not raw_bytes or len(raw_bytes) < 100:
+    if not raw_bytes or len(raw_bytes) < 100 or not _is_image_complete(raw_bytes):
         return None, "ছবিটা খুলতে পারলাম না। আবার পাঠান।"
 
     try:
