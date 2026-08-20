@@ -17,7 +17,7 @@ def test_oversized_webhook_body_is_dropped_before_signature_check(monkeypatch):
 
     client = TestClient(gateway.app)
     response = client.post(
-        "/webhook/whatsapp",
+        "/webhook/web",
         content=oversized_body,
         headers={
             "X-Hub-Signature-256": "sha256=irrelevant",
@@ -40,7 +40,7 @@ def test_normal_sized_body_still_reaches_signature_check(monkeypatch):
     small_body = b'{"entry": []}'
     client = TestClient(gateway.app)
     response = client.post(
-        "/webhook/whatsapp",
+        "/webhook/web",
         content=small_body,
         headers={
             "X-Hub-Signature-256": "sha256=irrelevant",

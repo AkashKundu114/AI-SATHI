@@ -4,7 +4,7 @@ from services.gateway.turn_processor import process_turn_and_dispatch
 
 class _FakeGraph:
     async def ainvoke(self, state_update, config):
-        assert state_update["whatsapp_number"] == "919876543210"
+        assert state_update["phone_number"] == "919876543210"
         assert config["configurable"]["thread_id"] == "919876543210"
         return {
             "outbound_messages": [
@@ -48,7 +48,7 @@ async def test_process_turn_delivers_graph_outbound_messages(monkeypatch):
     monkeypatch.setattr(turn_processor, "get_compiled_graph", _graph)
     monkeypatch.setattr(turn_processor, "send_text", _send_text)
 
-    from shared.whatsapp import sender
+    from shared.web import sender
 
     monkeypatch.setattr(sender, "send_document", _send_document)
     monkeypatch.setattr(sender, "send_image", _send_image)

@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from shared.whatsapp.flow_schema import (
+from shared.web.flow_schema import (
     validate_ledger_confirm_payload,
     validate_scheme_eligibility_payload,
 )

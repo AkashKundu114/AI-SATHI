@@ -5,7 +5,7 @@ from services.orchestrator.nodes.upgrade_node import upgrade_node
 
 @pytest.mark.asyncio
 async def test_upgrade_node_returns_plan_details():
-    state = {"whatsapp_number": "+919876543210"}
+    state = {"phone_number": "+919876543210"}
     result = await upgrade_node(state)
 
     assert result["trace"] == ["upgrade_node:info_sent"]

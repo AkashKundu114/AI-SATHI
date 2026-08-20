@@ -10,6 +10,8 @@ class ParsedMessage:
     image_bytes: bytes | None = None
     interactive_payload: dict | None = None
 
+IncomingMessage = ParsedMessage
+
 def parse_webhook_payload(payload: dict) -> ParsedMessage | None:
     # Dummy parser for Web UI webhooks
     if not payload:

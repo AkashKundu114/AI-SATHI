@@ -10,7 +10,7 @@ def test_log_security_event(caplog):
         log_security_event(
             "test_event",
             source_ip="127.0.0.1",
-            whatsapp_number="+919876543210",
+            phone_number="+919876543210",
             details={"reason": "unit_test"},
         )
 
@@ -22,7 +22,7 @@ def test_log_security_event(caplog):
     parsed = json.loads(json_part)
     assert parsed["event_type"] == "test_event"
     assert parsed["source_ip"] == "127.0.0.1"
-    assert parsed["whatsapp_number"] == "+919876543210"
+    assert parsed["phone_number"] == "+919876543210"
     assert parsed["details"]["reason"] == "unit_test"
 
 

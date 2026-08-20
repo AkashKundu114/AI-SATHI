@@ -89,7 +89,7 @@ def _default_mocks(
         return vision_info
 
     captions = captions or {
-        "whatsapp_caption": "পাপড় বিক্রির জন্য প্রস্তুত!",
+        "web_caption": "পাপড় বিক্রির জন্য প্রস্তুত!",
         "ad_caption": "আজই অর্ডার করুন!",
     }
 

@@ -1,6 +1,6 @@
 import pytest
 from services.gateway import main as gateway
-from shared.whatsapp.parser import IncomingMessage
+from shared.web.parser import IncomingMessage
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ async def test_audio_dispatch_downloads_transcribes_and_queues(
     async def _fake_process_turn(number, turn_input):
         processed.append((number, turn_input))
 
-    monkeypatch.setattr(gateway, "download_whatsapp_audio", _download)
+    monkeypatch.setattr(gateway, "download_web_audio", _download)
     monkeypatch.setattr(gateway, "transcribe", _transcribe)
     monkeypatch.setattr(gateway, "process_turn_and_dispatch", _fake_process_turn)
 
@@ -78,7 +78,7 @@ async def test_image_dispatch_uploads_raw_image_and_queues_catalog_key(
     async def _fake_process_turn(number, turn_input):
         processed.append((number, turn_input))
 
-    monkeypatch.setattr(gateway, "download_whatsapp_image", _download)
+    monkeypatch.setattr(gateway, "download_web_image", _download)
     monkeypatch.setattr(gateway, "upload_bytes", _fake_upload_bytes)
     monkeypatch.setattr(gateway, "process_turn_and_dispatch", _fake_process_turn)
 

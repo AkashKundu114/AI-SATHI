@@ -44,7 +44,7 @@ def test_valid_text_webhook_is_deduped_and_dispatched_once(monkeypatch):
 
     for _ in range(2):
         response = client.post(
-            "/webhook/whatsapp",
+            "/webhook/web",
             content=body,
             headers={
                 "X-Hub-Signature-256": _signature(body),
@@ -69,7 +69,7 @@ def test_bad_signature_is_rejected_before_dispatch(monkeypatch):
     body = _body("sample_text_webhook.json")
     client = TestClient(gateway.app)
     response = client.post(
-        "/webhook/whatsapp",
+        "/webhook/web",
         content=body,
         headers={
             "X-Hub-Signature-256": "sha256=bad",
@@ -82,7 +82,7 @@ def test_bad_signature_is_rejected_before_dispatch(monkeypatch):
 
 
 def test_webhook_fixtures_parse_to_expected_message_shapes():
-    from shared.whatsapp.parser import parse_webhook_payload
+    from shared.web.parser import parse_webhook_payload
 
     expected = {
         "sample_text_webhook.json": ("text", "wamid.TEXT123"),
