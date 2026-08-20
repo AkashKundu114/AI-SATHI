@@ -13,6 +13,8 @@ from services.gateway.turn_processor import process_turn_and_dispatch
 from services.voice_gateway.provider_cascade import transcribe
 from shared.web.media import (
     MediaTooLargeError,
+    download_web_audio,
+    download_web_image,
 )
 from shared.security.audit_log import log_security_event
 from shared.security.input_sanitizer import sanitize_text_input, validate_phone_number
@@ -153,14 +155,20 @@ async def _dispatch_to_orchestrator(msg):
             turn_input["raw_input_text"] = msg.text
 
         elif msg.message_type == "audio":
-            audio_bytes = msg.audio_bytes if hasattr(msg, "audio_bytes") else b""
+            if getattr(msg, "audio_id", None):
+                audio_bytes = await download_web_audio(msg.audio_id)
+            else:
+                audio_bytes = getattr(msg, "audio_bytes", None) or b""
             stt_result = await transcribe(audio_bytes)
             turn_input["raw_input_transcript"] = stt_result["transcript"]
             turn_input["transcript_provider"] = stt_result["provider"]
             turn_input["transcript_confidence"] = stt_result["confidence"]
 
         elif msg.message_type == "image":
-            image_bytes = msg.image_bytes if hasattr(msg, "image_bytes") else b""
+            if getattr(msg, "image_id", None):
+                image_bytes = await download_web_image(msg.image_id)
+            else:
+                image_bytes = getattr(msg, "image_bytes", None) or b""
             key = f"catalog-raw/{msg.from_number}/{uuid.uuid4().hex[:10]}.jpg"
             upload_bytes(key, image_bytes, content_type="image/jpeg")
             turn_input["raw_image_s3_key"] = key
