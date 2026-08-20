@@ -90,7 +90,7 @@ async def onboarding_node(state: ConversationState) -> dict:
         }
 
     if step == "AWAIT_CONSENT":
-        if text.lower() not in {"হ্যাঁ", "হ্যা", "ha", "haan", "yes"}:
+        if text.lower() not in {"হ্যাঁ", "হ্যা", "ha", "haan", "yes", "ok"}:
             return {
                 "outbound_messages": [{"type": "text", "body": "রাজি হলে 'হ্যাঁ' লিখুন, তাহলে শুরু করতে পারব।"}],
                 "trace": ["onboarding_node:consent_not_given"],
@@ -102,6 +102,7 @@ async def onboarding_node(state: ConversationState) -> dict:
                 "outbound_messages": [{"type": "text", "body": "একটু সমস্যা হয়েছে। একটু পরে আবার 'হ্যাঁ' লিখুন।"}],
                 "trace": ["onboarding_node:create_user_failed"],
             }
+
         return {
             "user_id": user_id,
             "is_new_user": False,
@@ -135,19 +136,18 @@ async def _create_user(state: ConversationState) -> str:
     last10 = digits[-10:] if len(digits) >= 10 else digits
 
     async with get_db_session() as db:
-        existing = (
-            await db.execute(
-                select(User).where(
-                    or_(
-                        User.phone_number == phone,
-                        User.username == phone,
-                        User.phone_number == last10 if last10 else False,
-                        User.phone_number == f"+91{last10}" if last10 else False,
-                        User.phone_number.endswith(last10) if len(last10) == 10 else False,
-                    )
+        res = await db.execute(
+            select(User).where(
+                or_(
+                    User.phone_number == phone,
+                    User.username == phone,
+                    User.phone_number == last10 if last10 else False,
+                    User.phone_number == f"+91{last10}" if last10 else False,
+                    User.phone_number.endswith(last10) if len(last10) == 10 else False,
                 )
             )
-        ).scalars().first()
+        )
+        existing = res.scalars().first() if hasattr(res, "scalars") else (res.scalar_one_or_none() if hasattr(res, "scalar_one_or_none") else None)
 
         if existing:
             existing.name = name if name != "User" else existing.name
