@@ -30,7 +30,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://aisathi:aisathi@postgres:5432/aisathi
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://aisathi:${POSTGRES_PASSWORD:-aisathi}@postgres:5432/aisathi}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aisathi}
       ADMIN_PASSWORD: admin
       ADMIN_API_TOKEN: secret-admin-token
