@@ -6,30 +6,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2.0.0] - 2026-08-20
 
 ### Added
-- **Sarvam AI exclusive stack**: `saaras:v4`, `mayura:v1`, `sarvam-105b`, `sarvam-105b-conversations`, `Parse`, `Vision`
-- **Multi-turn Bengali context**: Conversation state tracks last discussed/rejected ledger entries for correction flow
-- **Bengali dialect support**: Handles local product slang (e.g., sorser tel = mustard oil) with contextual continuation
-- **390-test suite**: Full offline coverage for security, edge cases, and behavioral validation
-- **Red team / blue team / pen test audit**: Documented in `docs/red-team.md` Section 12
-- **SVG architecture diagrams**: System architecture, app flow, and Sarvam model stack in `docs/assets/`
-- **JWT Authentication**: Enterprise-grade JWT auth in API Gateway
-- **IDOR Protection**: Strict token-subject matching on `/ledger` and `/storage/documents`
-- **GitHub Actions CI/CD**: Test + lint pipeline and GHCR deploy workflow
+- **Sarvam AI Integration**: Deployed \saaras:v4\, \mayura:v1\, \sarvam-105b\, \sarvam-105b-conversations\, \Parse\, and \Vision\ models.
+- **Conversational State Management**: Implemented multi-turn context tracking for ledger entry correction workflows.
+- **Dialect Processing**: Added robust support for regional product terminology and contextual interpretation.
+- **Comprehensive Testing**: Integrated a 390-test offline suite for security, edge cases, and behavioral validation.
+- **Security Audits**: Completed and documented red team/blue team penetration testing in \docs/red-team.md\.
+- **System Documentation**: Added scalable vector graphics (SVG) for architecture and data flow diagrams.
+- **Authentication**: Implemented JWT authentication within the API Gateway.
+- **Access Control**: Enforced strict Insecure Direct Object Reference (IDOR) protection on critical endpoints.
+- **CI/CD Pipeline**: Configured GitHub Actions for automated testing, linting, and container registry deployment.
 
 ### Changed
-- **Model router simplified**: Single direct Sarvam call instead of multi-model cascade loop
-- **Confirmation flow separation**: Clean routing for affirmative/negative/correction responses
-- **Codebase cleanup**: Comments stripped, em-dashes normalized, stale files removed
-- **Repository restructured**: Removed duplicate `services/`, `scripts/` shims; fixed Makefile and Docker paths
+- **Model Routing**: Consolidated cascading loops into direct Sarvam API calls for improved latency.
+- **Flow Control**: Separated confirmation flows to distinctly handle affirmative, negative, and correction responses.
+- **Code Quality**: Normalized documentation, stripped extraneous comments, and removed deprecated files.
+- **Repository Structure**: Resolved duplicate service shims and corrected Makefile/Docker configurations.
 
 ### Removed
-- **OpenAI dependency**: Entirely removed in favor of Sarvam AI + local Ollama fallback
-- **Bulbul TTS**: No text-to-speech - voice notes only via `saaras:v4`
+- **OpenAI Dependency**: Phased out completely in favor of Sarvam AI and localized Ollama instances.
+- **Legacy TTS**: Removed Bulbul Text-to-Speech service; voice notes are now handled exclusively via \saaras:v4\.
 
 ## [1.0.0] - 2026-08-01
 
 ### Added
-- Initial release with voice ledger, catalog creator, pricing, negotiation, market predictor
-- LangGraph state machine with PostgreSQL checkpointing
-- WhatsApp Cloud API integration
-- Self-hosted Ollama + faster-whisper fallback tier
+- Initial deployment of voice ledger, catalog creation, algorithmic pricing, negotiation engine, and market predictor.
+- Implemented LangGraph state machine with PostgreSQL checkpoint persistence.
+- Integrated WhatsApp Cloud API for external messaging.
+- Provisioned self-hosted Ollama and faster-whisper as a secondary fallback tier.

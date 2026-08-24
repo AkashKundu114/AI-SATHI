@@ -402,14 +402,14 @@ original audit; worth a pydantic schema before it's relied on more heavily.
 
 | # | Finding | Fixed here | Status after Pass #3 |
 |---|---|---|---|
-| CRIT-1 | Redis/Postgres/Ollama unauthenticated + host-exposed | ✅ compose port binding + requirepass + Celery serializer pin | ⏫ Superseded - Redis/Ollama removed entirely, see §11.1 |
-| CRIT-2 | PDF SSRF + HTML injection via unescaped ledger fields | ✅ autoescape + strip-tags + WeasyPrint network disabled | ✅ Unaffected |
-| HIGH-1 | Webhook HMAC uses wrong secret | ✅ new `wa_app_secret` setting | ✅ Unaffected |
-| HIGH-2 | No size cap on voice notes before GPU processing | ✅ size check in `media.py` | ⚠️ Blast radius changed, see §11.2 |
-| HIGH-3 | Grounding verifier misses word-form hallucinated amounts | ✅ `_WORD_AMOUNT_RE` extension + new test | ✅ Unaffected |
-| HIGH-4 | Unbounded ledger amounts, uncaught DB exceptions | ✅ `_validate_amount` + try/except + graph-level catch | ⚠️ Call site moved, see §11.2 |
-| MED-1 | Containers run as root | ✅ non-root `USER` in Dockerfiles | ✅ Unaffected (now one Dockerfile, not five) |
-| MED-2 | Unvalidated Flow JSON payload | ⚠️ flagged, not fixed | ⚠️ Still open |
+| CRIT-1 | Redis/Postgres/Ollama unauthenticated + host-exposed |  compose port binding + requirepass + Celery serializer pin |  Superseded - Redis/Ollama removed entirely, see §11.1 |
+| CRIT-2 | PDF SSRF + HTML injection via unescaped ledger fields |  autoescape + strip-tags + WeasyPrint network disabled |  Unaffected |
+| HIGH-1 | Webhook HMAC uses wrong secret |  new `wa_app_secret` setting |  Unaffected |
+| HIGH-2 | No size cap on voice notes before GPU processing |  size check in `media.py` |  Blast radius changed, see §11.2 |
+| HIGH-3 | Grounding verifier misses word-form hallucinated amounts |  `_WORD_AMOUNT_RE` extension + new test |  Unaffected |
+| HIGH-4 | Unbounded ledger amounts, uncaught DB exceptions |  `_validate_amount` + try/except + graph-level catch |  Call site moved, see §11.2 |
+| MED-1 | Containers run as root |  non-root `USER` in Dockerfiles |  Unaffected (now one Dockerfile, not five) |
+| MED-2 | Unvalidated Flow JSON payload |  flagged, not fixed |  Still open |
 
 Everything above is additive to `security.md` (H1-H12), not a replacement.
 
@@ -540,10 +540,10 @@ explicit rather than leaving it implied).
 
 | # | Finding | Status |
 |---|---|---|
-| 11.1 | Postgres dedup/rate-limit tables: no retention cleanup, added write load | ⚠️ Flagged, not fixed - matches architecture.md §11.1's stated trade-off |
-| 11.2 | No queue isolation - a heavy turn can degrade webhook ack latency under load | ⚠️ Flagged, mitigation options given, not applied |
-| 11.3 | Blob SAS generation uses full-access account key, not a scoped credential | ⚠️ Flagged, not fixed |
-| 11.4 | Single replica means no rolling security-patch deploy | ⚠️ Named trade-off, not a code fix |
+| 11.1 | Postgres dedup/rate-limit tables: no retention cleanup, added write load |  Flagged, not fixed - matches architecture.md §11.1's stated trade-off |
+| 11.2 | No queue isolation - a heavy turn can degrade webhook ack latency under load |  Flagged, mitigation options given, not applied |
+| 11.3 | Blob SAS generation uses full-access account key, not a scoped credential |  Flagged, not fixed |
+| 11.4 | Single replica means no rolling security-patch deploy |  Named trade-off, not a code fix |
 
 None of Pass #3's findings are CRIT - they're the honest cost of the savings described
 in `docs/architecture.md` §11, not new holes introduced by carelessness. Re-run this

@@ -1,4 +1,4 @@
-# Security & reliability posture
+# Security and Reliability Posture
 
 What's actually enforced in this codebase, and why, so it's reviewable in
 one place rather than scattered across commit messages.
@@ -8,7 +8,7 @@ one place rather than scattered across commit messages.
 > original Redis/Celery/MinIO shape and are marked inline with their
 > current status; §7 is the consolidated, current-state view.
 
-## Crash-proofing (the bot never goes silent)
+## Resiliency and Error Handling (Graceful Degradation)
 
 - **Every model call** goes through `model_router.py`, which sets a hard
   20-25s timeout and retry-with-backoff. On final failure it raises

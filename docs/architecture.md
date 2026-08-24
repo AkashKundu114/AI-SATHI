@@ -1,9 +1,9 @@
 # AI-SATHI v2 - Architecture Decisions
 
-This document records what changed from the original plan (`docs/product.md`, `docs/archive/product/trd.md`,
+This document provides a record of structural modifications from the original plan (`docs/product.md`, `docs/archive/product/trd.md`,
 `docs/roadmap.md` in the v1 repo) and **why**, based on a review of 2026 production
 practice for WhatsApp AI agents, Indic-language voice pipelines, and RAG systems.
-Read this before touching any code - it's the map of *why the folders are shaped this way*.
+Read this before touching any code - it's the map of *the architectural structure of the repository*.
 
 ---
 
@@ -12,7 +12,7 @@ Read this before touching any code - it's the map of *why the folders are shaped
 **v1 problem:** `services/gateway/router.py` dispatched on hand-written keyword sets
 (`FINANCIAL_KEYWORDS`, `SCHEME_KEYWORDS`, ...) into independent Celery tasks that each
 read/wrote Redis session state by convention. Nothing enforced that a task left the
-session in a valid state; debugging "why did the bot get stuck" meant reading Redis by hand.
+session in a valid state; debugging "why did the assistant get stuck" meant manual inspection of Redis instances.
 
 **v2 decision:** Replace the router + Celery-task-per-feature pattern with a single
 **LangGraph `StateGraph`** (`services/orchestrator/graph.py`). Conversation state is a

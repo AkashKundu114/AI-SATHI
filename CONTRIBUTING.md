@@ -1,15 +1,15 @@
-# Contributing to AI-SATHI
+# Contributing Guidelines
 
-Thank you for your interest in contributing to AI-SATHI! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to AI-SATHI. This document outlines the engineering standards and workflows for the project.
 
-## Development Setup
+## Development Environment Setup
 
-```bash
+`ash
 # Clone the repository
 git clone https://github.com/AkashKundu114/AI-SATHI.git
 cd AI-SATHI
 
-# Create and activate virtual environment
+# Initialize virtual environment
 python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
 # .venv\Scripts\activate   # Windows
@@ -19,45 +19,47 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 pip install -e .[test]
 
-# Copy environment config
+# Configure environment variables
 cp .env.example .env
-```
+`
 
-## Running Tests
+## Testing Protocol
 
-```bash
-# Full test suite (390 tests, all offline, no API keys needed)
+All code modifications must pass the existing test suite before review.
+
+`ash
+# Execute the full offline test suite
 python -m pytest tests/ -q
 
-# Specific test file
+# Execute a specific test module
 python -m pytest tests/unit/test_ledger_node.py -v
 
-# With coverage
+# Generate a coverage report
 python -m pytest tests/ --cov=shared --cov-report=term
-```
+`
 
-## Code Style
+## Engineering Standards
 
-- **Linting**: `ruff check backend/`
-- **Type checking**: `mypy backend/shared/ backend/services/`
-- Python 3.11+, type hints on all public functions
-- No comments in production code (docstrings only where needed)
+- **Static Analysis**: Enforce code quality using uff check backend/\.
+- **Type Checking**: Validate type hints using \mypy backend/shared/ backend/services/\.
+- **Language Features**: Code must be compatible with Python 3.11+. Strict type hinting is required for all public interfaces.
+- **Documentation**: Inline comments in production code should be minimized. Utilize comprehensive docstrings for structural documentation.
 
-## Project Structure
+## Repository Architecture
 
-All backend Python code lives under `backend/`:
-- `backend/services/` - Microservice modules (gateway, orchestrator, etc.)
-- `backend/shared/` - Shared utilities (config, db, guardrails, i18n, knowledge)
-- `backend/scripts/` - Admin and maintenance scripts
+The \ackend/\ directory structure is strictly organized:
+- \ackend/services/\: Microservice components (e.g., gateway, orchestrator).
+- \ackend/shared/\: Common utilities, including configuration, database ORM, guardrails, and centralized knowledge.
+- \ackend/scripts/\: Administrative tooling and maintenance operations.
 
-## Pull Request Process
+## Code Review Process
 
-1. Fork the repository and create a feature branch
-2. Ensure all 390 tests pass: `python -m pytest tests/ -q`
-3. Run linting: `ruff check backend/`
-4. Update documentation if your change affects the public API
-5. Submit a pull request with a clear description of changes
+1. Fork the repository and isolate changes within a feature branch.
+2. Ensure the complete test suite executes successfully (\python -m pytest tests/ -q\).
+3. Resolve all static analysis warnings (uff check backend/\).
+4. Update associated technical documentation for any modifications affecting public APIs or system architecture.
+5. Submit a pull request detailing the technical justification and scope of changes.
 
-## License
+## Licensing Agreement
 
-By contributing, you agree that your contributions will be licensed under the AGPL-3.0 License.
+By contributing to this repository, you acknowledge and agree that your contributions will be distributed under the AGPL-3.0 License.

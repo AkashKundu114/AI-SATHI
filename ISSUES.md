@@ -1,22 +1,24 @@
-# Known Issues & Roadmap
+# Known Issues and Development Roadmap
 
-## Known Limitations
+## System Limitations
 
-- **Ollama VRAM**: Local fallback requires adequate VRAM/RAM. Ensure fallback nodes have sufficient resources for concurrent processing during Sarvam API outages.
-- **Blob SAS Lifetime**: Azure SAS tokens are time-bound to 1 hour. Frontend clients must handle refresh on expiry.
-- **Dedup Cache Bloat**: Run `backend/scripts/cleanup_dedup.py` or the SQL script on a cron schedule to clear records older than 7 days.
+- **Resource Constraints (Ollama VRAM)**: The localized fallback tier requires substantial VRAM/RAM allocation. System administrators must ensure fallback nodes are adequately provisioned to handle concurrent processing during primary API outages.
+- **Token Expiration (Azure SAS)**: Azure Shared Access Signatures (SAS) are constrained to a one-hour lifetime. Client applications must implement robust token refresh mechanisms upon expiration.
+- **Data Retention (Deduplication Cache)**: To prevent storage bloat, operators should configure a cron schedule to execute \ackend/scripts/cleanup_dedup.py\ or the equivalent SQL script, purging records exceeding a seven-day threshold.
 
-## Not Yet Live-Tested
+## Pending Validation
 
-- Real WhatsApp send/receive (including tap-to-confirm Flow)
-- Sarvam Vision product-photo scope (vs. document/OCR)
-- Flux Pro endpoint/payload shape
-- Agmarknet resource ID/response schema
+The following components require final live-environment validation:
 
-Each fails safe (falls to free/local tier or friendly Bengali error) rather than crashing.
+- Real-world WhatsApp transmission and reception, including tap-to-confirm Flow interactions.
+- Scope limitations for Sarvam Vision processing on product photography versus document OCR.
+- Verification of the Flux Pro endpoint behavior and payload structures.
+- Schema validation for Agmarknet resource identifiers and API responses.
 
-## Feature Roadmap
+*Note: All unverified components are engineered to fail gracefully, defaulting to secondary tiers or localized error handling to prevent systemic crashes.*
 
-1. **Agri-Diagnostics**: Paused - needs localized West Bengal crop datasets for pest diagnostics
-2. **Meeting Minutes**: Multi-speaker diarization for SHG meetings - experimental, future release
-3. **Subsidy Matchmaking**: RAG grounding in place, chat routing not yet activated by default
+## Development Roadmap
+
+1. **Agricultural Diagnostics**: Development paused pending acquisition of localized regional crop datasets for accurate pest diagnostics.
+2. **Meeting Transcription**: Integration of multi-speaker diarization for group meetings is slated for experimental testing in a future release.
+3. **Subsidy Allocation Module**: RAG grounding is fully implemented; however, chat routing logic is currently disabled by default pending further review.

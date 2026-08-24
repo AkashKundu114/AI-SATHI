@@ -91,7 +91,7 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 | # | Goal | Target |
 |---|------|--------|
 | G1 | Active monthly users | 50,000 SHG members |
-| G2 | Government schemes accessed via bot | 15,000 successful applications |
+| G2 | Government schemes accessed via assistant | 15,000 successful applications |
 | G3 | Micro-finance loan applications supported | 8,000 loans (using bot-generated PDF ledgers) |
 | G4 | SHG groups using Meeting Minutes feature | 5,000 groups |
 | G5 | Average session duration | < 3 minutes (voice-first, fast) |
@@ -146,7 +146,7 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 - FR2.4: Eligibility determination via sequential voice/text Q&A dialogue (max 5 questions per scheme)
 - FR2.5: Output: Bengali-language eligibility verdict + itemized document checklist + nearest Panchayat office address (via PIN code lookup)
 - FR2.6: Scheme database refreshed weekly via automated scraper + human review flag
-- FR2.7: Fallback: If scheme information cannot be confirmed, bot states "Ei byshe aami nishchit noi, Panchayat-e jiggesh korun" (I'm not certain about this, please ask the Panchayat) and provides phone number
+- FR2.7: Fallback: If scheme information cannot be confirmed, assistant states "Ei byshe aami nishchit noi, Panchayat-e jiggesh korun" (I'm not certain about this, please ask the Panchayat) and provides phone number
 
 **Acceptance Criteria:**
 - Zero hallucinated scheme amounts or eligibility criteria (verified by manual audit of 200 Q&A pairs)
@@ -206,7 +206,7 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 ### Feature 5: Automated Subsidy & Loan Matchmaker
 **Priority:** P1 - MVP+
 
-**User Story:** As a group leader, I want the bot to tell me when our group becomes eligible for a new fund or scheme, without me having to track it myself.
+**User Story:** As a group leader, I want the assistant to tell me when our group becomes eligible for a new fund or scheme, without me having to track it myself.
 
 **Functional Requirements:**
 - FR5.1: Bot proactively monitors user ledger data and SHG metadata (group size, meeting regularity, savings record) against scheme eligibility thresholds
@@ -249,7 +249,7 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 ### Feature 7: Voice-Driven Meeting Minutes & Group Governance
 **Priority:** P1 - MVP+
 
-**User Story:** As Rina, the group leader, I want to record a 2-minute summary of our weekly meeting and have the bot generate properly formatted meeting minutes that I can send to the block coordinator.
+**User Story:** As Rina, the group leader, I want to record a 2-minute summary of our weekly meeting and have the assistant generate properly formatted meeting minutes that I can send to the block coordinator.
 
 **Functional Requirements:**
 - FR7.1: Accept group meeting summary as single voice note (max 5 minutes)
@@ -327,7 +327,7 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 
 ### 8.1 Acquisition
 - Weekly new user registrations via onboarding keyword ("SHURU" or "শুরু")
-- Referral rate (new users who joined because an existing user shared the bot number)
+- Referral rate (new users who joined because an existing user shared the assistant number)
 
 ### 8.2 Engagement
 - DAU/MAU ratio (target: > 0.4 - high for a utility bot)
@@ -355,7 +355,7 @@ A future where every SHG woman in West Bengal, regardless of literacy or locatio
 | Agricultural Advice | Liability disclaimer on every diagnostic. Recommends KVK consultation for severe cases. |
 | Data Consent | Onboarding requires voice/text consent acknowledgement in Bengali |
 | Vulnerable Users | Bot does not ask for Aadhaar numbers, bank account numbers, or OTPs at any point - ever |
-| Guardrails | Domain-locked: bot politely redirects off-topic queries back to its function |
+| Guardrails | Domain-locked: assistant politely redirects off-topic queries back to its function |
 | Abuse Prevention | Rate limiting; no bulk message capability for end users; WhatsApp WABA policy compliance |
 
 ---
@@ -448,14 +448,14 @@ of the following show up in real metrics, not before:
 ### 11.1 The 8 Core Financial Transaction Modes
 The AI-SATHI ledger natively supports 8 distinct rural transaction types in both spoken and written Bengali/Banglish:
 
-1. **📈 বিক্রি / জমা (Sales & Inflow)**: e.g. *"ধান বিক্রি করেছি ১২০০ টাকা"*, *"বেতের চেয়ার বিক্রি ৬০০ টাকা"*.
-2. **📉 খরচ / ক্রয় (Expense & Purchases)**: e.g. *"মোমো খেয়েছি ৫০ টাকা"*, *"সার কিনেছি ২০০ টাকা"*.
-3. **🤝 বাকিতে বিক্রি / ধার দেওয়া (Lending & Credit Out)**: e.g. *"রিনা দি-কে ৩০০ টাকা ধার দিয়েছি"*.
-4. **📥 বাকি আদায় (Debt Recovery & Collections)**: e.g. *"করিম কাকা বাকি ২০০ টাকা ফেরত দিল"*.
-5. **🏦 ঋণ গ্রহণ (Loan & Borrowing)**: e.g. *"সমিতি থেকে ৫০০০ টাকা ঋণ নিলাম"*.
-6. **💸 কিস্তি শোধ (Installment / Kisti Repayment)**: e.g. *"আজকে ঋণের ৫০০ টাকার কিস্তি দিলাম"*.
-7. **🐷 সঞ্চয় জমা (Savings Deposit)**: e.g. *"স্বনির্ভর দলে মাসিক ১০০ টাকা সঞ্চয় জমা দিলাম"*.
-8. **👷 মজুরি ও পরিবহন (Wages & Transport)**: e.g. *"মাঠে কাজের জন্য ৪০০ টাকা মজুরি দিলাম"*.
+1. ** বিক্রি / জমা (Sales & Inflow)**: e.g. *"ধান বিক্রি করেছি ১২০০ টাকা"*, *"বেতের চেয়ার বিক্রি ৬০০ টাকা"*.
+2. ** খরচ / ক্রয় (Expense & Purchases)**: e.g. *"মোমো খেয়েছি ৫০ টাকা"*, *"সার কিনেছি ২০০ টাকা"*.
+3. ** বাকিতে বিক্রি / ধার দেওয়া (Lending & Credit Out)**: e.g. *"রিনা দি-কে ৩০০ টাকা ধার দিয়েছি"*.
+4. ** বাকি আদায় (Debt Recovery & Collections)**: e.g. *"করিম কাকা বাকি ২০০ টাকা ফেরত দিল"*.
+5. ** ঋণ গ্রহণ (Loan & Borrowing)**: e.g. *"সমিতি থেকে ৫০০০ টাকা ঋণ নিলাম"*.
+6. ** কিস্তি শোধ (Installment / Kisti Repayment)**: e.g. *"আজকে ঋণের ৫০০ টাকার কিস্তি দিলাম"*.
+7. ** সঞ্চয় জমা (Savings Deposit)**: e.g. *"স্বনির্ভর দলে মাসিক ১০০ টাকা সঞ্চয় জমা দিলাম"*.
+8. ** মজুরি ও পরিবহন (Wages & Transport)**: e.g. *"মাঠে কাজের জন্য ৪০০ টাকা মজুরি দিলাম"*.
 
 ### 11.2 Sarvam Middleman & Dialect Intelligence
 - **Local Dialect Parsing**: Utilizes `Mayura v1` and `Sarvam 105B` to recognize regional vocabulary (*"বেচলাম"*, *"কিনলুম"*, *"দেনা"*, *"বকেয়া"*, *"তাগাদা"*, *"হালি"*, *"কুড়ি"*, *"পোয়া"*).

@@ -1,6 +1,6 @@
 # Engineering Review Checklist
 
-Use this file for a FAANG-style code and systems review. It names the core
+Use this file for a enterprise-grade code and systems review. It names the core
 invariants, what is covered by tests, and what a reviewer should inspect first.
 
 > **Deployment target for this checklist:** the Azure low-cost pilot

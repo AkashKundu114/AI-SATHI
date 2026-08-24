@@ -1,29 +1,29 @@
-# AI-SATHI Documentation
+# AI-SATHI Technical Documentation
 
-Comprehensive documentation for the AI-SATHI v2.0 production release.
+This directory contains the comprehensive technical documentation for the AI-SATHI v2.0 production deployment.
 
-## Index
+## Documentation Index
 
 | Document | Description |
 |---|---|
-| [**architecture.md**](architecture.md) | System architecture - LangGraph FSM, Sarvam AI middleman stack, PostgreSQL + pgvector, Docker containerization |
-| [**product.md**](product.md) | Product requirements - 8 Bengali/Banglish transaction modes, conversational separation, onboarding flows |
-| [**engineering-review.md**](engineering-review.md) | Engineering audit - 390-test suite pass, PostgreSQL tuning, container optimizations |
-| [**security.md**](security.md) | Security architecture - JWT auth, rate limiting, HMAC-SHA256 validation, input sanitization, PII masking |
-| [**red-team.md**](red-team.md) | Adversarial audit - dialect edge cases, prompt injection, balance overflow, pen test results |
-| [**runbooks/restore.md**](runbooks/restore.md) | Operations - PostgreSQL backup/restore, Docker recovery, migration runbooks |
+| [**architecture.md**](architecture.md) | System architecture detailing the LangGraph FSM, Sarvam AI routing stack, PostgreSQL/pgvector integration, and Docker containerization. |
+| [**product.md**](product.md) | Product specifications defining the eight transaction modes, conversational routing, and user onboarding logic. |
+| [**engineering-review.md**](engineering-review.md) | Engineering audit covering test suite validation, PostgreSQL performance tuning, and infrastructure optimizations. |
+| [**security.md**](security.md) | Security architecture outlining JWT authentication, rate limiting, HMAC-SHA256 validation, input sanitization, and PII masking. |
+| [**red-team.md**](red-team.md) | Adversarial audit documenting dialect edge cases, prompt injection defense, balance overflow protections, and penetration testing results. |
+| [**runbooks/restore.md**](runbooks/restore.md) | Operational procedures including PostgreSQL backup and restoration, Docker recovery, and database migration guidelines. |
 
-## Quick Start
+## Quick Start Configuration
 
-```bash
+`ash
 cd AI-SATHI
-cp .env.example .env        # Configure credentials
-docker compose up --build -d # Launch full stack
-```
+cp .env.example .env        # Configure necessary credentials
+docker compose up --build -d # Initialize the application stack
+`
 
-App: `http://localhost:8000/` - Default login: `admin` / `admin`
+Access the application at \http://localhost:8000/\. Default administrative credentials are \dmin\ / \dmin\.
 
-## Architecture
+## System Architecture
 
 ![System Architecture](assets/architecture_diagram.svg)
 
