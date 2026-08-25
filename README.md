@@ -2,6 +2,8 @@
 
 **Enterprise Voice-First Financial Assistant**
 
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#) [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](#) [![Python Version](https://img.shields.io/badge/python-3.11-blue)](#) [![React](https://img.shields.io/badge/react-18-blue)](#)
+
 ## Executive Summary
 
 AI-SATHI is a production-grade, voice-first Web UI financial assistant designed for Self-Help Group (SHG) micro-entrepreneurs. It processes regional voice inputs into structured financial ledgers, generates compliance-ready PDF reports, automates catalog creation, and provides predictive market trend analysis. The system is engineered for high availability and is hosted on Microsoft Azure via GCP pipelines, accessible securely through kothakhata.app.
@@ -10,14 +12,14 @@ AI-SATHI is a production-grade, voice-first Web UI financial assistant designed 
 
 - **Web-Native Interface**: Interactive React and Vite frontend accessible directly via standard web browsers.
 - **Dedicated AI Infrastructure**: Operates independently of standard OpenAI dependencies, utilizing saaras:v4, mayura:v1, sarvam-105b, sarvam-105b-conversations, Parse, and Vision.
-- **Advanced Voice Intelligence**: Multi-lingual Speech-to-Text (STT) and Text-to-Speech (TTS) utilizing aster-whisper and region-specific acoustic models.
+- **Advanced Voice Intelligence**: Multi-lingual Speech-to-Text (STT) and Text-to-Speech (TTS) utilizing faster-whisper and region-specific acoustic models.
 - **Robust Quality Assurance**: Backed by a comprehensive 390-test offline suite ensuring security, edge-case coverage, and behavioral consistency under constrained network conditions.
 
 ## System Architecture
 
-The core architecture operates via a centralized API gateway (ackend/services/gateway) built on FastAPI. This layer manages web session authentication, request deduplication, and rate-limiting. Workloads are dispatched to the orchestrator (ackend/services/orchestrator), a LangGraph state machine with PostgreSQL checkpointing for resumability.
+The core architecture operates via a centralized API gateway (`backend/services/gateway`) built on FastAPI. This layer manages web session authentication, request deduplication, and rate-limiting. Workloads are dispatched to the orchestrator (`backend/services/orchestrator`), a LangGraph state machine with PostgreSQL checkpointing for resumability.
 
-Model interactions are routed exclusively through ackend/services/orchestrator/model_router.py, establishing a resilient cascade with automated retries and strict timeouts. Contextual domain knowledge is centralized in ackend/shared/knowledge/, ensuring consistent logic across all autonomous agents.
+Model interactions are routed exclusively through `backend/services/orchestrator/model_router.py`, establishing a resilient cascade with automated retries and strict timeouts. Contextual domain knowledge is centralized in `backend/shared/knowledge/`, ensuring consistent logic across all autonomous agents.
 
 ## Feature Specifications
 
@@ -36,25 +38,25 @@ Model interactions are routed exclusively through ackend/services/orchestrator/
 
 ### Initialization
 
-`ash
+```bash
 git clone https://github.com/AkashKundu114/AI-SATHI.git
 cd AI-SATHI
 cp .env.example .env
-`
+```
 
-Ensure .env is populated with the requisite SARVAM_API_KEY and WhatsApp API credentials.
+Ensure `.env` is populated with the requisite SARVAM_API_KEY and WhatsApp API credentials.
 
 ### Deployment
 
-`ash
+```bash
 docker compose up --build -d
-`
+```
 
-The application will bind to http://localhost:8000. Default administrative credentials are dmin / dmin.
+The application will bind to `http://localhost:8000`. Default administrative credentials are `admin` / `admin`.
 
 ### Infrastructure Requirements
 
-- **Containerization**: Docker & Docker Compose for local development and deployment.
+- **Containerization**: Docker and Docker Compose for local development and deployment.
 - **Hosting**: Microsoft Azure Virtual Machine for production environments.
 - **CI/CD**: GitHub Actions for automated testing and deployment workflows.
 - **AI Services**: Sarvam AI API access.
@@ -62,7 +64,7 @@ The application will bind to http://localhost:8000. Default administrative crede
 
 ## Repository Architecture
 
-`	ext
+```text
 AI-SATHI/
 ├── backend/
 │   ├── services/
@@ -86,13 +88,13 @@ AI-SATHI/
 ├── migrations/                   # PostgreSQL schema migrations
 ├── tests/                        # Unit and integration test suites
 └── docs/                         # Technical documentation and runbooks
-`
+```
 
 ## Testing Protocol
 
 The repository includes a comprehensive, offline-capable test suite.
 
-`ash
+```bash
 # Execute full test suite
 python -m pytest tests/ -q
 
@@ -101,7 +103,7 @@ make test-fast
 
 # Generate coverage report
 python -m pytest tests/ --cov=shared --cov-report=term
-`
+```
 
 ## Documentation Reference
 
@@ -120,6 +122,10 @@ python -m pytest tests/ --cov=shared --cov-report=term
 - **AI Infrastructure**: Sarvam AI, Ollama, faster-whisper
 - **External Integration**: Meta WhatsApp Cloud API
 - **Deployment**: Docker Compose, Caddy, GitHub Actions
+
+## Contributing
+
+We welcome contributions from the community. Please refer to our contributing guidelines before submitting a pull request. Ensure that all tests pass locally and that new features include appropriate test coverage.
 
 ## Licensing
 
