@@ -101,3 +101,5 @@ celerybeat.pid
 # Archive
 archive/
 scratch/
+node_modules/
+package-lock.json

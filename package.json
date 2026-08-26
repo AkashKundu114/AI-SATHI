@@ -1,0 +1,29 @@
+{
+  "name": "ai-sathi",
+  "version": "1.0.0",
+  "description": "**Enterprise Voice-First Financial Assistant**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AkashKundu114/AI-SATHI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/AkashKundu114/AI-SATHI/issues"
+  },
+  "homepage": "https://github.com/AkashKundu114/AI-SATHI#readme",
+  "dependencies": {
+    "md-to-pdf": "^5.2.5",
+    "puppeteer": "^25.9.0"
+  }
+}
