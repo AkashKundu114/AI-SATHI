@@ -1,6 +1,6 @@
 # Engineering Review Checklist
 
-Use this file for a enterprise-grade code and systems review. It names the core
+Use this file for an engineering code and systems review. It names the core
 invariants, what is covered by tests, and what a reviewer should inspect first.
 
 > **Deployment target for this checklist:** the Azure low-cost pilot
@@ -29,11 +29,15 @@ invariants, what is covered by tests, and what a reviewer should inspect first.
 | Area | Files |
 |---|---|
 | Webhook auth, dedup, rate-limit, and in-process dispatch | `services/gateway/main.py`, `shared/db/dedup.py` |
+| Web auth, registration, and PBKDF2 hashing | `services/gateway/api_router.py`, `shared/security/password_hasher.py` |
+| Voice chat endpoint and audio parsing | `services/gateway/api_router.py`, `shared/web/media.py` |
+| Browser chat interface and persistence | `frontend/src/components/ChatInterface.jsx` |
 | Turn processing (LangGraph invocation + outbound delivery) | `services/gateway/turn_processor.py` |
 | WhatsApp parsing/sending/media | `shared/whatsapp/*` |
 | State machine | `services/orchestrator/graph.py` |
 | Model cascade | `services/orchestrator/model_router.py` |
 | Ledger extraction/confirmation | `services/orchestrator/nodes/ledger_node.py`, `ledger_confirm_node.py` |
+| Onboarding and phone normalization | `services/orchestrator/nodes/onboarding_node.py`, `user_profile_node.py` |
 | Pricing and negotiation safety | `pricing_node.py`, `negotiation_node.py`, `price_chat_node.py`, `cross_verify.py` |
 | Catalog image flow (now Azure Blob-backed) | `catalog_node.py`, `shared/storage/blob_client.py`, `services/vision_service/*` |
 | PDF report safety (now Azure Blob-backed) | `services/pdf_service/generator.py` |
@@ -170,5 +174,5 @@ Before live users:
 | **Conversational Flow Separation** | Verified | General dialogue routes directly to `sarvam-105b-conversations` with zero DB writes. Financial statements trigger Bengali confirmation (`"এই হিসাবটি কি ঠিক আছে?"`) and discard cleanly on `"na"`. |
 | **Classy UI Redesign** | Verified | Built responsive glassmorphism UI with Obsidian, Champagne Gold, Titanium, Emerald, Rose, and Sapphire tokens. |
 | **Docker Compose Stack** | Verified | Live multi-container environment (`app`, `postgres`, `azurite`) operational and serving on port 8000. |
-| **Unit & E2E Test Suite** | Passed | 389 unit/integration tests and live Docker container validation suites green. |
+| **Unit & E2E Test Suite** | Passed | 390 unit and integration tests passing offline with 100% success rate. |
 

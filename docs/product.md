@@ -6,7 +6,7 @@
 
 ## 1. Executive Summary
 
-**AI-SATHI** (Voice-Ledger) is a voice-first, multimodal AI assistant delivered exclusively through WhatsApp for Self-Help Group (SHG) women in rural and semi-urban West Bengal. It turns casual spoken Bengali into structured financial records, government scheme eligibility assessments, product marketing assets, agricultural diagnostics, and group governance documents - without requiring literacy, a smartphone app download, or any prior digital experience.
+**AI-SATHI** (Voice-Ledger) is a voice-first, multimodal financial assistant accessible via responsive web interface (`kothakhata.app`) and WhatsApp for Self-Help Group (SHG) women in rural and semi-urban West Bengal. It turns casual spoken Bengali into structured financial records, government scheme eligibility assessments, product marketing assets, agricultural diagnostics, and group governance documents without requiring high literacy or complex software training.
 
 The product is not a general-purpose AI wrapper. It is a domain-locked, mission-specific operational platform that makes the invisible formal - turning unstructured local-language activity into auditable, bank-grade financial and governance data.
 

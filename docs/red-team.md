@@ -563,6 +563,7 @@ tier, per `docs/product.md` §10.5's stated scale-up triggers.
 | **Webhook Replay Attack** | Resending identical WhatsApp webhook payload with spoofed timestamp. | HMAC-SHA256 signature check & PostgreSQL deduplication (`dedup_messages`) drop duplicate within 0ms. | **DEFENDED** |
 | **Document SSRF / WeasyPrint Injection** | Submitting malicious PDF/HTML containing `<link href="http://169.254.169.254/metadata">`. | Sarvam Document Intelligence (`Parse`) parses layout asynchronously; Jinja2 PDF generator enforces `autoescape=True` and blocks external URL resolution. | **DEFENDED** |
 | **IDOR / Multi-tenant Partitioning** | Authenticated user `A` querying ledger statement of user `B`. | All database queries enforced with strict `where(User.id == target_uuid)` parameterized session filter. | **DEFENDED** |
+| **Duplicate User Account Splitting** | Resending parallel onboarding requests with varying phone prefixes (`+91` vs 10 digits). | Phone normalizer matches standardized digits and database enforces safe conflict rollback. | **DEFENDED** |
 
 ### 12.2 Blue Team Defensive Controls Matrix
 

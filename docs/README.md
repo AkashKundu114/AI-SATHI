@@ -1,36 +1,38 @@
-# AI-SATHI Technical Documentation
+# AI-SATHI Documentation
 
-This directory contains the comprehensive technical documentation for the AI-SATHI v2.0 production deployment.
+Welcome to the technical documentation for AI-SATHI. This directory contains detailed guides covering system architecture, product requirements, security audits, verification testing, and operational runbooks.
 
 ## Documentation Index
 
-| Document | Description |
+| Document | Purpose |
 |---|---|
-| [**architecture.md**](architecture.md) | System architecture detailing the LangGraph FSM, Sarvam AI routing stack, PostgreSQL/pgvector integration, and Docker containerization. |
-| [**product.md**](product.md) | Product specifications defining the eight transaction modes, conversational routing, and user onboarding logic. |
-| [**engineering-review.md**](engineering-review.md) | Engineering audit covering test suite validation, PostgreSQL performance tuning, and infrastructure optimizations. |
-| [**security.md**](security.md) | Security architecture outlining JWT authentication, rate limiting, HMAC-SHA256 validation, input sanitization, and PII masking. |
-| [**red-team.md**](red-team.md) | Adversarial audit documenting dialect edge cases, prompt injection defense, balance overflow protections, and penetration testing results. |
-| [**runbooks/restore.md**](runbooks/restore.md) | Operational procedures including PostgreSQL backup and restoration, Docker recovery, and database migration guidelines. |
+| [**architecture.md**](architecture.md) | Architectural decisions, LangGraph state machine, Sarvam Indic AI model routing, PostgreSQL persistence, and single-container deployment details. |
+| [**product.md**](product.md) | Product requirements, user personas, transaction categories, and conversational flow definitions. |
+| [**engineering-review.md**](engineering-review.md) | Review checklist covering code invariants, test expectations, and system handover audits. |
+| [**security.md**](security.md) | Security design, JWT authentication, rate limiting, HMAC-SHA256 webhook validation, input sanitization, and PII masking. |
+| [**red-team.md**](red-team.md) | Adversarial testing, dialect prompt injection defenses, balance overflow protections, and penetration test verification. |
+| [**runbooks/restore.md**](runbooks/restore.md) | Operational procedures for restoring PostgreSQL from Blob Storage backups and disaster recovery drills. |
 
 ## Quick Start Configuration
 
-`ash
+```bash
 cd AI-SATHI
-cp .env.example .env        # Configure necessary credentials
-docker compose up --build -d # Initialize the application stack
-`
+cp .env.example .env          # Configure database, Sarvam API key, and secrets
+docker compose up --build -d   # Start the application stack
+```
 
-Access the application at \http://localhost:8000/\. Default administrative credentials are \dmin\ / \dmin\.
+Access the web interface at `http://localhost:8000/`. Default administrative credentials are `admin` / `admin`.
 
-## System Architecture
+## Releases and Tags
 
-![System Architecture](assets/architecture_diagram.svg)
+Detailed changelog notes and repository release tags are documented in the root [CHANGELOG.md](../CHANGELOG.md):
 
-## Application Flow
+- **v2.1.0** (2026-08-26): Web UI chat persistence, PBKDF2 authentication, `/api/chat/voice` endpoint, database URL override, and documentation export tooling.
+- **v2.0.0** (2026-08-20): Full Sarvam AI model migration, LangGraph state machine, PostgreSQL checkpointer, 390 offline tests, and Azure deployment.
+- **v1.0.0** (2026-08-01): Initial prototype release with WhatsApp voice ledger, catalog generation, and rule-based pricing.
 
-![App Flow](assets/app_flow_diagram.svg)
+## Visual Architecture References
 
-## Sarvam AI Model Stack
-
-![Sarvam Model Stack](assets/sarvam_middleman_stack.svg)
+- **Overall System Architecture**: [assets/architecture_diagram.svg](assets/architecture_diagram.svg)
+- **Application Flow and State Transitions**: [assets/app_flow_diagram.svg](assets/app_flow_diagram.svg)
+- **Sarvam AI Integration Layer**: [assets/sarvam_middleman_stack.svg](assets/sarvam_middleman_stack.svg)

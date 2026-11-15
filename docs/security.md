@@ -222,6 +222,7 @@ flowchart TD
 
 - **Human-in-the-Loop Isolation**: The core ledger database is strictly unreachable without explicit affirmative confirmation (`হ্যাঁ`). Cancellations (`না`) and general chit-chat execute with 0 database write operations.
 - **Circuit Breaker Resilience**: Upstream Sarvam outages are caught via `ModelUnavailableError` with friendly, localized Bengali fallbacks.
+- **Password Hashing & Unified JWT**: User credentials are protected using PBKDF2 with SHA-256 and unique salts; API tokens use standard HMAC-SHA256 signatures with unified secret resolution across all gateway endpoints.
 - **Rate-Limiting & Spend Guards**: Token bucket per-user rate limits (30 req/hr) and platform-level spend ceilings prevent denial-of-wallet vectors.
 - **Audit Logging & K-Anonymity**: All security events logged to `audit_logs`; collective price benchmarking data enforces $k \ge 5$ differential privacy clustering.
 

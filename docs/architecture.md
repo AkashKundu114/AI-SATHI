@@ -688,4 +688,10 @@ sequenceDiagram
 - Connection pooling resiliently configured with `pool_pre_ping=True` and `pool_recycle=300` in `backend/shared/db/session.py`.
 - Schema includes automatic migrations for user verification status, plan tiers, and expanded multi-turn extraction metadata.
 
+### 13.6 Web Platform, Authentication & Chat State
+- **User Authentication**: Gateway routes provide user registration and login with PBKDF2 password hashing, issuing standard JWT tokens with unified secret resolution.
+- **Voice Chat Route**: Dedicated `/api/chat/voice` endpoint accepts multipart audio uploads directly from browser recording interfaces.
+- **Browser State**: The React web interface persists ongoing chat turns in browser `localStorage`, preventing data loss on accidental reloads, with a dedicated chat reset control.
+- **Phone Number Normalization**: User lookup and onboarding flows match Indian phone variations (`+91`, 10-digit formats) to avoid duplicate user accounts.
+
 

@@ -1,24 +1,31 @@
 # Known Issues and Development Roadmap
 
-## System Limitations
+This document tracks known operational constraints, pending real-world validations, recently resolved issues, and the active development roadmap for AI-SATHI.
 
-- **Resource Constraints (Ollama VRAM)**: The localized fallback tier requires substantial VRAM/RAM allocation. System administrators must ensure fallback nodes are adequately provisioned to handle concurrent processing during primary API outages.
-- **Token Expiration (Azure SAS)**: Azure Shared Access Signatures (SAS) are constrained to a one-hour lifetime. Client applications must implement robust token refresh mechanisms upon expiration.
-- **Data Retention (Deduplication Cache)**: To prevent storage bloat, operators should configure a cron schedule to execute \ackend/scripts/cleanup_dedup.py\ or the equivalent SQL script, purging records exceeding a seven-day threshold.
+## Operational Constraints
 
-## Pending Validation
+- **Local Fallback Resource Usage**: Running self-hosted Ollama and faster-whisper fallbacks requires significant system memory and dedicated VRAM. In lightweight production deployments (such as single-container Azure hosts), relying on the primary Sarvam AI API with graceful error messaging is standard practice.
+- **Azure SAS Token Expiry**: Shared Access Signature (SAS) tokens generated for WhatsApp outbound media links have a 1-hour validity window. Client applications displaying these assets should request updated URLs when tokens expire.
+- **Deduplication Storage Retention**: Webhook deduplication records and rate limit counters are stored in PostgreSQL (`webhook_dedup` and `rate_limit_counters`). Operators should set up a weekly maintenance job to run `backend/scripts/cleanup_dedup.py` or execute an equivalent SQL query to remove records older than seven days.
 
-The following components require final live-environment validation:
+## Recently Resolved
 
-- Real-world WhatsApp transmission and reception, including tap-to-confirm Flow interactions.
-- Scope limitations for Sarvam Vision processing on product photography versus document OCR.
-- Verification of the Flux Pro endpoint behavior and payload structures.
-- Schema validation for Agmarknet resource identifiers and API responses.
+- **Duplicate Onboarding Records**: Resolved an issue where users entering phone numbers with varied formats (such as with or without a `+91` country code) could produce duplicate profiles. Phone numbers are now normalized before lookup and creation, with safe rollbacks on conflict.
+- **Voice Chat Route Alias**: Added `/api/chat/voice` with multipart audio parsing so browser microphone recordings can be sent directly to the speech-to-text pipeline.
+- **Unified JWT Secret Resolution**: Resolved occasional 401 signature mismatches between the gateway auth router and internal token validators.
+- **Browser Chat Persistence**: Added `localStorage` message history to the React web UI, preventing lost draft messages on browser reload, along with an explicit chat reset button.
+- **Docker Compose Database Override**: Added support for overriding `DATABASE_URL` directly via environment variables without editing compose files.
 
-*Note: All unverified components are engineered to fail gracefully, defaulting to secondary tiers or localized error handling to prevent systemic crashes.*
+## Pending Field Validation
 
-## Development Roadmap
+The following items are functional in the test suite but require continued monitoring under live rural conditions:
 
-1. **Agricultural Diagnostics**: Development paused pending acquisition of localized regional crop datasets for accurate pest diagnostics.
-2. **Meeting Transcription**: Integration of multi-speaker diarization for group meetings is slated for experimental testing in a future release.
-3. **Subsidy Allocation Module**: RAG grounding is fully implemented; however, chat routing logic is currently disabled by default pending further review.
+- **WhatsApp Flows Tap-to-Confirm**: Validating interactive button and form behavior under low-bandwidth 2G and 3G cellular connections.
+- **Document OCR Variety**: Evaluating Sarvam Document Intelligence (`Parse`) across handwritten Bengali receipts, torn bills, and varied passbook layouts.
+- **Commodity Price Feeds**: Verifying real-time API response formats from state Agmarknet market data endpoints for rural produce centers.
+
+## Active Roadmap
+
+1. **Agricultural Diagnostics**: Work on pest and crop disease detection is currently paused while we collect and verify localized regional crop image datasets with district agricultural extension offices.
+2. **Multi-Speaker Meeting Diarization**: Exploring speaker diarization models to help SHG leaders automatically capture minutes and loan disbursements during weekly group meetings.
+3. **Government Scheme Retrieval Expansion**: Expanding the RAG knowledge base with updated West Bengal state social schemes and district-specific subsidies.
